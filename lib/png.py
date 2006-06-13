@@ -125,21 +125,23 @@ if __name__ == '__main__':
     from optparse import OptionParser
     parser = OptionParser()
     parser.set_usage("%prog [options] [ppmfile]")
-    parser.set_defaults(interlace=False, transparent=None)
-    parser.add_option("--interlace", action="store_true",
+    parser.add_option("--interlace", default=False, action="store_true",
                       help="create an interlaced PNG file (Adam7)")
-    parser.add_option("--transparent", action="store", type="string",
-                      metavar="color",
+    parser.add_option("--transparent",
+                      action="store", type="string", metavar="color",
                       help="mark the specified color as transparent")
-    parser.add_option("--background", action="store", type="string",
-                      metavar="color",
+    parser.add_option("--background",
+                      action="store", type="string", metavar="color",
                       help="store the specified background color")
-    parser.add_option("--gamma", action="store", type="float",
-                      metavar="value",
+    parser.add_option("--gamma",
+                      action="store", type="float", metavar="value",
                       help="store the specified gamma value")
-    parser.add_option("--alpha", action="store", type="string",
-                      metavar="pgmfile",
+    parser.add_option("--alpha",
+                      action="store", type="string", metavar="pgmfile",
                       help="alpha channel transparency (RGBA)")
+    parser.add_option("--compression",
+                      action="store", type="int", metavar="level",
+                      help="zlib compression level (0-9)")
     (options, args) = parser.parse_args()
     print options
     print args
