@@ -1,0 +1,14 @@
+A simple unscientific benchmark of pypng against pnmtopng from netpbm.
+
+Each benchmark run compresses a 16MB PPM file with different options.
+You can add new lines to this file by running "make >> BENCHMARK".
+
+Each line consists of the date, the version and three number triples.
+Each triple has the user and system time, and the output file size.
+The first triple is without arguments.
+The second triple is with maximum compression.
+The third triple is with Adam7 interlacing.
+
+Date       Version    Default          Compression 9    Interlace
+2006-06-13 netpbm     2.21+0.02 933888 6.98+0.03 917504 5.73+0.15 1183744
+2006-06-13 0.3-alpha1 1.19+0.18 770048 4.54+0.18 729088 7.09+0.17 921600
