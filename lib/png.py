@@ -7,6 +7,7 @@
 # 2. GNU General Public License (GPL), Version 2 or newer
 # 3. Apache License, Version 2.0 or newer
 # 4. The following license (aka MIT License)
+#
 # --------------------- start of license -----------------------------
 # Copyright (C) 2006 Johann C. Rocholl <johann@browsershots.org>
 #
@@ -30,8 +31,10 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 # ----------------------- end of license -----------------------------
+#
 # You may not use this file except in compliance with at least one of
 # the above four licenses.
+
 
 """
 PNG encoder in pure Python
@@ -55,11 +58,14 @@ This file can be used in two ways:
    >>> help(png)
 """
 
+
 __revision__ = '$Rev$'
 __date__ = '$Date$'
 __author__ = '$Author$'
 
+
 import sys, zlib, struct
+
 
 def scanlines(width, height, pixels):
     """
@@ -73,22 +79,24 @@ def scanlines(width, height, pixels):
         result.append(pixels[offset:offset+scanline])
     return ''.join(result)
 
-# http://www.w3.org/TR/PNG/#8InterlaceMethods
-adam7 = ((0, 0, 8, 8),
-         (4, 0, 8, 8),
-         (0, 4, 4, 8),
-         (2, 0, 4, 4),
-         (0, 2, 2, 4),
-         (1, 0, 2, 2),
-         (0, 1, 1, 2))
 
-def scanlines_interlace(width, height, pixels, scheme = adam7):
+
+
+def scanlines_interlace(width, height, pixels):
     """
     Interlace and insert a filter type marker byte before every scanline.
+    http://www.w3.org/TR/PNG/#8InterlaceMethods
     """
+    adam7 = ((0, 0, 8, 8),
+             (4, 0, 8, 8),
+             (0, 4, 4, 8),
+             (2, 0, 4, 4),
+             (0, 2, 2, 4),
+             (1, 0, 2, 2),
+             (0, 1, 1, 2))
     result = []
     scanline = 3*width
-    for xstart, ystart, xstep, ystep in scheme:
+    for xstart, ystart, xstep, ystep in adam7:
         for y in range(ystart, height, ystep):
             if xstart < width:
                 result.append(chr(0))
@@ -103,6 +111,7 @@ def scanlines_interlace(width, height, pixels, scheme = adam7):
                     result.append(''.join(row))
     return ''.join(result)
 
+
 def write_chunk(outfile, tag, data):
     """
     Write a PNG chunk to the output file, including length and checksum.
@@ -114,6 +123,7 @@ def write_chunk(outfile, tag, data):
     checksum = zlib.crc32(tag)
     checksum = zlib.crc32(data, checksum)
     outfile.write(struct.pack("!I", checksum))
+
 
 def write(outfile, width, height, pixels,
           interlace = False, transparent = None):
@@ -164,6 +174,7 @@ def write(outfile, width, height, pixels,
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
 
+
 def read_header(infile, supported_magic=('P6')):
     """
     Read a PNM header and check if the format is supported.
@@ -176,6 +187,7 @@ def read_header(infile, supported_magic=('P6')):
         raise NotImplementedError('only maxval 255 is supported')
     return width, height
 
+
 def pnmtopng(infile, outfile,
         interlace=None, transparent=None, background=None,
         alpha=None, gamma=None, compression=None):
@@ -186,6 +198,7 @@ def pnmtopng(infile, outfile,
     if alpha:
         if read_header(alpha, 'P4') != (width, height):
             raise ValueError('alpha channel has different image size')
+
 
 def _main():
     """
@@ -232,6 +245,7 @@ def _main():
              gamma=options.gamma,
              alpha=options.alpha,
              compression=options.compression)
+
 
 if __name__ == '__main__':
     _main()
