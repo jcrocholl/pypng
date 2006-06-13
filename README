@@ -1,0 +1,82 @@
+Help on module png:
+
+NAME
+    png - PNG encoder in pure Python
+
+FILE
+    /usr/lib/python2.4/site-packages/png.py
+
+DESCRIPTION
+    This is an implementation of a subset of the PNG specification at
+    http://www.w3.org/TR/2003/REC-PNG-20031110 in pure Python.
+    
+    It currently supports encoding of PPM files or raw data with 24 bits
+    per pixel (RGB) into PNG, with a number of options.
+    
+    This file can be used in two ways:
+    
+    1. As a command-line utility to convert PNM files to PNG. The
+       interface is similar to that of the pnmtopng program from the
+       netpbm package. Try "python png.py --help" for usage information.
+    
+    2. As a module that can be imported and that offers methods to write
+       PNG files directly from your Python program. For help, try the
+       following in your python interpreter:
+       >>> import png
+       >>> help(png)
+
+FUNCTIONS
+    pnmtopng(infile, outfile, interlace=None, transparent=None, background=None, alpha=None, gamma=None, compression=None)
+        Encode a PNM file into a PNG file.
+    
+    read_header(infile, supported_magic='P6')
+        Read a PNM header and check if the format is supported.
+        
+        Return width and height of the image in pixels.
+    
+    read_pnm_header(infile)
+        Read a PNM header from a file.
+        
+        Return magic, width, height, maxval.
+    
+    scanlines(width, height, pixels)
+        Insert a filter type marker byte before every scanline.
+    
+    scanlines_interlace(width, height, pixels, scheme=((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2)))
+        Interlace and insert a filter type marker byte before every scanline.
+    
+    write(outfile, width, height, pixels, interlace=False, transparent=None)
+        Write a 24bpp RGB opaque PNG to the output file.
+        http://www.w3.org/TR/PNG/
+        
+        The pixels parameter must be a string of length 3*width*height,
+        containing the red, green, blue values for each pixel in rows from
+        left to right, top to bottom (the same format that you get when
+        reading a PPM file with maxval <= 255).
+        
+        If the interlace parameter is set to True, the pixels will be
+        re-arranged with the Adam7 scheme. This is good for incremental
+        display over a slow network connection, but it increases encoding
+        time by a factor of 5 and file size by a factor of 1.2 or so.
+        
+        The transparent parameter can be used to mark a color as
+        transparent in the resulting image file. If specified, it must be
+        a string of length 3 with the red, green, blue values.
+    
+    write_chunk(outfile, tag, data)
+        Write a PNG chunk to the output file, including length and checksum.
+        http://www.w3.org/TR/PNG/#5Chunk-layout
+
+DATA
+    __author__ = '$Author: johann $'
+    __date__ = '$Date: 2006-06-13 12:46:33 +0200 (Tue, 13 Jun 2006) $'
+    __revision__ = '$Rev: 458 $'
+    adam7 = ((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2...
+
+DATE
+    $Date: 2006-06-13 12:46:33 +0200 (Tue, 13 Jun 2006) $
+
+AUTHOR
+    $Author: johann $
+
+

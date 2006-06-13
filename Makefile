@@ -1,4 +1,4 @@
-.PHONY : test/large.ppm
+.PHONY : README test/large.ppm
 
 benchmarks : \
 test/benchmark.png \
@@ -23,3 +23,6 @@ test/%.ppm : test/%.png
 
 install :
 	python setup.py install
+
+README :
+	pydoc png > $@
