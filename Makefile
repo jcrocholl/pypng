@@ -1,21 +1,30 @@
-.PHONY : README test/large.ppm
+BENCHMARK = test/pypng.png test/pypng9.png test/pypngi.png
+REFERENCE = test/netpbm.png test/netpbm9.png test/netpbmi.png
 
-benchmarks : \
-test/benchmark.png \
-test/benchmark-interlace.png \
-test/benchmark-netpbm.png \
-test/benchmark-netpbm-interlace.png \
+benchmark :
+	@make $(BENCHMARK) 2>&1 | grep user \
+	| sed -e s/user./\\+/ | sed -e s/system.*// | xargs echo pypng
 
-test/benchmark.png : test/large.ppm
+reference :
+	@make $(REFERENCE) 2>&1 | grep user \
+	| sed -e s/user./\\+/ | sed -e s/system.*// | xargs echo netpbm
+
+test/pypng.png : test/large.ppm
 	LC_ALL=POSIX time python lib/png.py < $< > $@
 
-test/benchmark-interlace.png : test/large.ppm
+test/pypng9.png : test/large.ppm
+	LC_ALL=POSIX time python lib/png.py --compression 9 < $< > $@
+
+test/pypngi.png : test/large.ppm
 	LC_ALL=POSIX time python lib/png.py --interlace < $< > $@
 
-test/benchmark-netpbm.png : test/large.ppm
+test/netpbm.png : test/large.ppm
 	LC_ALL=POSIX time pnmtopng < $< > $@
 
-test/benchmark-netpbm-interlace.png : test/large.ppm
+test/netpbm9.png : test/large.ppm
+	LC_ALL=POSIX time pnmtopng -compression 9 < $< > $@
+
+test/netpbmi.png : test/large.ppm
 	LC_ALL=POSIX time pnmtopng -interlace < $< > $@
 
 test/%.ppm : test/%.png
@@ -26,3 +35,5 @@ install :
 
 README :
 	pydoc png > $@
+
+.PHONY : README test/large.ppm
