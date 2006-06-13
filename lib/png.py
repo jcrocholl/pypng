@@ -77,7 +77,8 @@ def write_chunk(outfile, tag, data):
     checksum = zlib.crc32(data, checksum)
     outfile.write(struct.pack("!I", checksum))
 
-def write(outfile, width, height, pixels, interlace = False, transparent = None):
+def write(outfile, width, height, pixels,
+          interlace = False, transparent = None):
     """
     Write a 24bpp RGB opaque PNG to the output file.
     http://www.w3.org/TR/PNG/
@@ -110,20 +111,37 @@ def write(outfile, width, height, pixels, interlace = False, transparent = None)
     # http://www.w3.org/TR/PNG/#5PNG-file-signature
     outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
     # http://www.w3.org/TR/PNG/#11IHDR
-    write_chunk(outfile, 'IHDR', struct.pack("!2I5B", width, height, 8, 2, 0, 0, interlace))
+    write_chunk(outfile, 'IHDR', struct.pack("!2I5B",
+                                             width, height,
+                                             8, 2, 0, 0, interlace))
     # http://www.w3.org/TR/PNG/#11tRNS
     if transparent is not None:
-        transparent = struct.pack("!3H", ord(transparent[0]), ord(transparent[1]), ord(transparent[2]))
+        transparent = struct.pack("!3H",
+                                  ord(transparent[0]),
+                                  ord(transparent[1]),
+                                  ord(transparent[2]))
         write_chunk(outfile, 'tRNS', transparent)
     # http://www.w3.org/TR/PNG/#11IDAT
     write_chunk(outfile, 'IDAT', zlib.compress(data))
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
 
-if __name__ == '__main__':
-    import os
+def encode_file_to_file(infile, outfile,
+        interlace=None, transparent=None, background=None,
+        gamma=None, alpha=None, compression=None):
+    """
+    Encode a PPM file inte a PNG file.
+    """
+    pass
+
+def main():
+    """
+    Run PNG encoder from the command line.
+    """
+    # Parse command line arguments
     from optparse import OptionParser
-    parser = OptionParser()
+    version = '%prog ' + __revision__.strip('$').replace('Rev: ', 'r')
+    parser = OptionParser(version=version)
     parser.set_usage("%prog [options] [ppmfile]")
     parser.add_option("--interlace", default=False, action="store_true",
                       help="create an interlaced PNG file (Adam7)")
@@ -143,5 +161,24 @@ if __name__ == '__main__':
                       action="store", type="int", metavar="level",
                       help="zlib compression level (0-9)")
     (options, args) = parser.parse_args()
-    print options
-    print args
+    # Prepare input and output files
+    if len(args) == 0:
+        infile = sys.stdin
+    elif len(args) == 1:
+        infile = open(args[0], 'rb')
+    else:
+        parser.error("more than one input file")
+    if options.alpha:
+        options.alpha = open(options.alpha, 'rb')
+    outfile = sys.stdout
+    # Encode PNG
+    encode_file_to_file(infile, outfile,
+                        interlace=options.interlace,
+                        transparent=options.transparent,
+                        background=options.background,
+                        gamma=options.gamma,
+                        alpha=options.alpha,
+                        compression=options.compression)
+
+if __name__ == '__main__':
+    main()
