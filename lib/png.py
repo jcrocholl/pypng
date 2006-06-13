@@ -1,20 +1,58 @@
 #!/usr/bin/env python
+# png.py - PNG encoder in pure Python
 # Copyright (C) 2006 Johann C. Rocholl <johann@browsershots.org>
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# This file is licensed alternatively under one of the following:
+# 1. GNU Lesser General Public License (LGPL), Version 2.1 or newer
+# 2. GNU General Public License (GPL), Version 2 or newer
+# 3. Apache License, Version 2.0 or newer
+# 4. The following license (aka MIT License)
+# --------------------- start of license -----------------------------
+# Copyright (C) 2006 Johann C. Rocholl <johann@browsershots.org>
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# ----------------------- end of license -----------------------------
+# You may not use this file except in compliance with at least one of
+# the above four licenses.
 
 """
-Write PNG files in pure Python.
+PNG encoder in pure Python
+
+This is an implementation of a subset of the PNG specification at
+http://www.w3.org/TR/2003/REC-PNG-20031110 in pure Python.
+
+It currently supports encoding of PPM files or raw data with 24 bits
+per pixel (RGB) into PNG, with a number of options.
+
+This file can be used in two ways:
+
+1. As a command-line utility to convert PNM files to PNG. The
+   interface is similar to that of the pnmtopng program from the
+   netpbm package. Try "python png.py --help" for usage information.
+
+2. As a module that can be imported and that offers methods to write
+   PNG files directly from your Python program. For help, try the
+   following in your python interpreter:
+   >>> import png
+   >>> help(png)
 """
 
 __revision__ = '$Rev$'
@@ -126,23 +164,38 @@ def write(outfile, width, height, pixels,
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
 
-def encode_file_to_file(infile, outfile,
-        interlace=None, transparent=None, background=None,
-        gamma=None, alpha=None, compression=None):
+def read_header(infile, supported_magic=('P6')):
     """
-    Encode a PPM file inte a PNG file.
+    Read a PNM header and check if the format is supported.
+    Return width and height of the image in pixels.
     """
-    pass
+    magic, width, height, maxval = todo()
+    if magic not in supported_magic:
+        raise NotImplementedError('file format not supported')
+    if maxval != 255:
+        raise NotImplementedError('only maxval 255 is supported')
+    return width, height
 
-def main():
+def pnmtopng(infile, outfile,
+        interlace=None, transparent=None, background=None,
+        alpha=None, gamma=None, compression=None):
     """
-    Run PNG encoder from the command line.
+    Encode a PNM file into a PNG file.
+    """
+    width, height = read_header(infile)
+    if alpha:
+        if read_header(alpha, 'P4') != (width, height):
+            raise ValueError('alpha channel has different image size')
+
+def _main():
+    """
+    Run the PNG encoder with options from the command line.
     """
     # Parse command line arguments
     from optparse import OptionParser
     version = '%prog ' + __revision__.strip('$').replace('Rev: ', 'r')
     parser = OptionParser(version=version)
-    parser.set_usage("%prog [options] [ppmfile]")
+    parser.set_usage("%prog [options] [pnmfile]")
     parser.add_option("--interlace", default=False, action="store_true",
                       help="create an interlaced PNG file (Adam7)")
     parser.add_option("--transparent",
@@ -151,12 +204,12 @@ def main():
     parser.add_option("--background",
                       action="store", type="string", metavar="color",
                       help="store the specified background color")
-    parser.add_option("--gamma",
-                      action="store", type="float", metavar="value",
-                      help="store the specified gamma value")
     parser.add_option("--alpha",
                       action="store", type="string", metavar="pgmfile",
                       help="alpha channel transparency (RGBA)")
+    parser.add_option("--gamma",
+                      action="store", type="float", metavar="value",
+                      help="store the specified gamma value")
     parser.add_option("--compression",
                       action="store", type="int", metavar="level",
                       help="zlib compression level (0-9)")
@@ -171,14 +224,14 @@ def main():
     if options.alpha:
         options.alpha = open(options.alpha, 'rb')
     outfile = sys.stdout
-    # Encode PNG
-    encode_file_to_file(infile, outfile,
-                        interlace=options.interlace,
-                        transparent=options.transparent,
-                        background=options.background,
-                        gamma=options.gamma,
-                        alpha=options.alpha,
-                        compression=options.compression)
+    # Encode PNM to PNG
+    pnmtopng(infile, outfile,
+             interlace=options.interlace,
+             transparent=options.transparent,
+             background=options.background,
+             gamma=options.gamma,
+             alpha=options.alpha,
+             compression=options.compression)
 
 if __name__ == '__main__':
-    main()
+    _main()
