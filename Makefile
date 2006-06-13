@@ -20,3 +20,6 @@ test/benchmark-netpbm-interlace.png : test/large.ppm
 
 test/%.ppm : test/%.png
 	pngtopnm < $< > $@
+
+install :
+	python setup.py install
