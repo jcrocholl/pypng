@@ -80,8 +80,6 @@ def scanlines(width, height, pixels):
     return ''.join(result)
 
 
-
-
 def scanlines_interlace(width, height, pixels):
     """
     Interlace and insert a filter type marker byte before every scanline.
@@ -126,7 +124,8 @@ def write_chunk(outfile, tag, data):
 
 
 def write(outfile, width, height, pixels,
-          interlace = False, transparent = None):
+          interlace = False, transparent = None,
+          compression=None):
     """
     Write a 24bpp RGB opaque PNG to the output file.
     http://www.w3.org/TR/PNG/
@@ -170,22 +169,32 @@ def write(outfile, width, height, pixels,
                                   ord(transparent[2]))
         write_chunk(outfile, 'tRNS', transparent)
     # http://www.w3.org/TR/PNG/#11IDAT
-    write_chunk(outfile, 'IDAT', zlib.compress(data))
+    if compression is not None:
+        write_chunk(outfile, 'IDAT', zlib.compress(data, compression))
+    else:
+        write_chunk(outfile, 'IDAT', zlib.compress(data))
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
 
 
-def read_header(infile, supported_magic=('P6')):
+def read_pnm_header(infile, supported='P6'):
     """
-    Read a PNM header and check if the format is supported.
-    Return width and height of the image in pixels.
+    Read a PNM header, return width and height of the image in pixels.
     """
-    magic, width, height, maxval = todo()
-    if magic not in supported_magic:
-        raise NotImplementedError('file format not supported')
-    if maxval != 255:
-        raise NotImplementedError('only maxval 255 is supported')
-    return width, height
+    header = []
+    while len(header) < 4:
+        line = infile.readline()
+        sharp = line.find('#')
+        if sharp > -1:
+            line = line[:sharp]
+        header.extend(line.split())
+        if len(header) == 3 and header[0] == 'P4':
+            break # PBM doesn't have maxval
+    if header[0] not in supported:
+        raise NotImplementedError('file format %s not supported' % header[0])
+    if header[0] != 'P4' and header[3] != '255':
+        raise NotImplementedError('maxval %s not supported' % maxval)
+    return int(header[1]), int(header[2])
 
 
 def pnmtopng(infile, outfile,
@@ -194,10 +203,13 @@ def pnmtopng(infile, outfile,
     """
     Encode a PNM file into a PNG file.
     """
-    width, height = read_header(infile)
-    if alpha:
-        if read_header(alpha, 'P4') != (width, height):
+    width, height = read_pnm_header(infile)
+    if alpha is not None:
+        if read_pnm_header(alpha, 'P5') != (width, height):
             raise ValueError('alpha channel has different image size')
+    write(outfile, width, height, infile.read(),
+          interlace=interlace,
+          compression=compression)
 
 
 def _main():
