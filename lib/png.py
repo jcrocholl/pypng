@@ -2,15 +2,6 @@
 # png.py - PNG encoder in pure Python
 # Copyright (C) 2006 Johann C. Rocholl <johann@browsershots.org>
 #
-# This file is licensed alternatively under one of the following:
-# 1. GNU Lesser General Public License (LGPL), Version 2.1 or newer
-# 2. GNU General Public License (GPL), Version 2 or newer
-# 3. Apache License, Version 2.0 or newer
-# 4. The following license (aka MIT License)
-#
-# --------------------- start of license -----------------------------
-# Copyright (C) 2006 Johann C. Rocholl <johann@browsershots.org>
-#
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
 # (the "Software"), to deal in the Software without restriction,
@@ -30,10 +21,6 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-# ----------------------- end of license -----------------------------
-#
-# You may not use this file except in compliance with at least one of
-# the above four licenses.
 
 
 """
