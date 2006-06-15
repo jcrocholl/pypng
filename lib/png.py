@@ -133,14 +133,16 @@ def write(outfile,
         data.extend(scanline)
         if len(data) > chunk_limit:
             compressed = compressor.compress(data.tostring())
-            print >> sys.stderr, len(data), len(compressed)
-            write_chunk(outfile, 'IDAT', compressed)
+            if len(compressed):
+                # print >> sys.stderr, len(data), len(compressed)
+                write_chunk(outfile, 'IDAT', compressed)
             data = array('B')
     if len(data):
         compressed = compressor.compress(data.tostring())
         flushed = compressor.flush()
-        print >> sys.stderr, len(data), len(compressed), len(flushed)
-        write_chunk(outfile, 'IDAT', compressed + flushed)
+        if len(compressed) or len(flushed):
+            # print >> sys.stderr, len(data), len(compressed), len(flushed)
+            write_chunk(outfile, 'IDAT', compressed + flushed)
 
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
