@@ -16,27 +16,27 @@ reference :
 
 test/pypng.png : test/large.ppm
 	LC_ALL=POSIX time python lib/png.py < $< > $@
-	@ls --block-size=1 -s $@ | sed -e s/test.*/system/
+	@du -b $@ | sed -e s/test.*/system/
 
 test/pypng9.png : test/large.ppm
 	LC_ALL=POSIX time python lib/png.py --compression 9 < $< > $@
-	@ls --block-size=1 -s $@ | sed -e s/test.*/system/
+	@du -b $@ | sed -e s/test.*/system/
 
 test/pypngi.png : test/large.ppm
 	LC_ALL=POSIX time python lib/png.py --interlace < $< > $@
-	@ls --block-size=1 -s $@ | sed -e s/test.*/system/
+	@du -b $@ | sed -e s/test.*/system/
 
 test/netpbm.png : test/large.ppm
 	LC_ALL=POSIX time pnmtopng < $< > $@
-	@ls --block-size=1 -s $@ | sed -e s/test.*/system/
+	@du -b $@ | sed -e s/test.*/system/
 
 test/netpbm9.png : test/large.ppm
 	LC_ALL=POSIX time pnmtopng -compression 9 < $< > $@
-	@ls --block-size=1 -s $@ | sed -e s/test.*/system/
+	@du -b $@ | sed -e s/test.*/system/
 
 test/netpbmi.png : test/large.ppm
 	LC_ALL=POSIX time pnmtopng -interlace < $< > $@
-	@ls --block-size=1 -s $@ | sed -e s/test.*/system/
+	@du -b $@ | sed -e s/test.*/system/
 
 test/%.ppm : test/%.png
 	pngtopnm < $< > $@
