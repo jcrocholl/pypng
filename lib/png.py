@@ -203,15 +203,13 @@ def array_scanlines_interlace(pixels, width, height):
                     offset = y*row_skip
                     yield pixels[offset:offset+row_skip]
                 else:
-                    row = []
+                    row = array('B')
                     offset = y*row_skip + xstart*3
                     skip = 3*xstep
                     for x in range(xstart, width, xstep):
-                        row.append(pixels[offset])
-                        row.append(pixels[offset+1])
-                        row.append(pixels[offset+2])
+                        row.extend(pixels[offset:offset+3])
                         offset += skip
-                    yield array('B', row)
+                    yield row
 
 
 def pnmtopng(infile, outfile,
