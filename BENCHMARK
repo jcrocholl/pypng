@@ -10,5 +10,5 @@ The second triple is with maximum compression.
 The third triple is with Adam7 interlacing.
 
 Date       Version    Default          Compression 9    Interlace
-2006-06-13 netpbm     2.21+0.02 933888 6.98+0.03 917504 5.73+0.15 1183744
-2006-06-13 0.3-alpha1 1.19+0.18 770048 4.54+0.18 729088 7.09+0.17 921600
+2006-06-15 netpbm     2.21+0.02 933888 6.81+0.05 917504 5.49+0.14 1183744
+2006-06-15 0.3-alpha1 1.17+0.17 770048 4.49+0.18 729088 6.81+0.18 921600
