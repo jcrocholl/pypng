@@ -68,10 +68,9 @@ def write_chunk(outfile, tag, data):
     outfile.write(struct.pack("!I", checksum))
 
 
-def write(outfile,
-          scanlines, width, height,
+def write(outfile, scanlines, width, height,
           interlaced=False, transparent=None, background=None,
-          compression=None, chunk_limit=2**20):
+          gamma=None, compression=None, chunk_limit=2**20):
     """
     Create a PNG image from RGB data.
 
@@ -121,6 +120,9 @@ def write(outfile,
     if background is not None:
         write_chunk(outfile, 'bKGD', struct.pack("!3H", *background))
 
+    # http://www.w3.org/TR/PNG/#11gAMA
+    if gamma is not None:
+        write_chunk(outfile, 'gAMA', struct.pack("!L", int(gamma * 100000)))
 
     # http://www.w3.org/TR/PNG/#11IDAT
     if compression is not None:
@@ -170,7 +172,7 @@ def read_pnm_header(infile, supported='P6'):
 
 def file_scanlines(infile, width, height):
     """
-    Generator for scanlines.
+    Generator for scanlines from an input file.
     """
     for y in range(height):
         scanline = array('B')
@@ -180,7 +182,7 @@ def file_scanlines(infile, width, height):
 
 def array_scanlines(pixels, width, height):
     """
-    Generator for scanlines.
+    Generator for scanlines from an array.
     """
     width *= 3
     stop = 0
@@ -192,7 +194,7 @@ def array_scanlines(pixels, width, height):
 
 def array_scanlines_interlace(pixels, width, height):
     """
-    Interlace and insert a filter type marker byte before every scanline.
+    Generator for interlaced scanlines from an array.
     http://www.w3.org/TR/PNG/#8InterlaceMethods
     """
     adam7 = ((0, 0, 8, 8),
@@ -236,6 +238,7 @@ def pnmtopng(infile, outfile,
           interlaced=interlace,
           transparent=transparent,
           background=background,
+          gamma=gamma,
           compression=compression)
 
 
