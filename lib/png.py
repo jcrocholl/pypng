@@ -251,6 +251,7 @@ def color_triple(color):
                 int(color[3:5], 16),
                 int(color[5:7], 16))
 
+
 def _main():
     """
     Run the PNG encoder with options from the command line.
