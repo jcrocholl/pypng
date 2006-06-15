@@ -111,23 +111,11 @@ def write_chunk(outfile, tag, data):
     outfile.write(struct.pack("!I", checksum))
 
 
-def write_idat(outfile, data, compression):
-    """
-    Write an IDAT chunk of compressed pixel data.
-    http://www.w3.org/TR/PNG/#11IDAT
-    """
-    data = data.tostring()
-    if compression is not None:
-        data = zlib.compress(data, compression)
-    else:
-        data = zlib.compress(data)
-    write_chunk(outfile, 'IDAT', data)
-
-
 def write(outfile,
           scanlines, width, height,
           interlace = False, transparent = None,
-          compression=None):
+          compression=None,
+          chunk_limit=2**20):
     """
     Create a PNG image from RGB data.
 
@@ -174,11 +162,24 @@ def write(outfile,
         write_chunk(outfile, 'tRNS', struct.pack("!3H", transparent))
 
     # http://www.w3.org/TR/PNG/#11IDAT
+    if compression is not None:
+        compressor = zlib.compressobj(compression)
+    else:
+        compressor = zlib.compressobj()
     data = array('B')
     for scanline in scanlines:
         data.append(0)
         data.extend(scanline)
-    write_idat(outfile, data, compression)
+        if len(data) > chunk_limit:
+            compressed = compressor.compress(data.tostring())
+            print >> sys.stderr, len(data), len(compressed)
+            write_chunk(outfile, 'IDAT', compressed)
+            data = array('B')
+    if len(data):
+        compressed = compressor.compress(data.tostring())
+        flushed = compressor.flush()
+        print >> sys.stderr, len(data), len(compressed), len(flushed)
+        write_chunk(outfile, 'IDAT', compressed + flushed)
 
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
@@ -204,7 +205,7 @@ def read_pnm_header(infile, supported='P6'):
     return int(header[1]), int(header[2])
 
 
-def scanline_iterator(infile, width, height):
+def file_scanlines(infile, width, height):
     """
     Generator for scanlines.
     """
@@ -212,6 +213,18 @@ def scanline_iterator(infile, width, height):
         scanline = array('B')
         scanline.fromfile(infile, 3 * width)
         yield scanline
+
+
+def array_scanlines(pixels, width, height):
+    """
+    Generator for scanlines.
+    """
+    width *= 3
+    stop = 0
+    for y in range(height):
+        start = stop
+        stop = start + width
+        yield pixels[start:stop]
 
 
 def pnmtopng(infile, outfile,
@@ -224,7 +237,10 @@ def pnmtopng(infile, outfile,
     if alpha is not None:
         if read_pnm_header(alpha, 'P5') != (width, height):
             raise ValueError('alpha channel has different image size')
-    write(outfile, scanline_iterator(infile, width, height), width, height)
+    pixels = array('B')
+    pixels.fromfile(infile, 3*width*height)
+    scanlines = array_scanlines(pixels, width, height)
+    write(outfile, scanlines, width, height)
 
 
 def _main():
