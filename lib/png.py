@@ -70,7 +70,7 @@ def write_chunk(outfile, tag, data):
 
 def write(outfile,
           scanlines, width, height,
-          interlace = False, transparent = None,
+          interlaced=False, transparent=None, background=None,
           compression=None, chunk_limit=2**20):
     """
     Create a PNG image from RGB data.
@@ -79,14 +79,14 @@ def write(outfile,
     outfile - something with a write() method
     scanlines - iterator that returns scanlines from top to bottom
     width, height - size of the image in pixels
-    interlace - enable Adam7 interlacing
+    interlaced - scanlines are interlaced with Adam7
     transparent - create a tRNS chunk
     compression - zlib compression level (0-9)
 
     Each scanline must be an array of bytes of length 3*width,
     containing the red, green, blue values for each pixel.
 
-    If the interlace parameter is set to True, the scanlines are
+    If the interlaced parameter is set to True, the scanlines are
     expected to be interlaced with the Adam7 scheme. This is good for
     incremental display over a slow network connection, but it
     increases encoding time and memory use by an order of magnitude
@@ -106,16 +106,21 @@ def write(outfile,
     outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
 
     # http://www.w3.org/TR/PNG/#11IHDR
-    if interlace:
-        interlace = 1
+    if interlaced:
+        interlaced = 1
     else:
-        interlace = 0
+        interlaced = 0
     write_chunk(outfile, 'IHDR',
-        struct.pack("!2I5B", width, height, 8, 2, 0, 0, interlace))
+        struct.pack("!2I5B", width, height, 8, 2, 0, 0, interlaced))
 
     # http://www.w3.org/TR/PNG/#11tRNS
     if transparent is not None:
-        write_chunk(outfile, 'tRNS', struct.pack("!3H", transparent))
+        write_chunk(outfile, 'tRNS', struct.pack("!3H", *transparent))
+
+    # http://www.w3.org/TR/PNG/#11bKGD
+    if background is not None:
+        write_chunk(outfile, 'bKGD', struct.pack("!3H", *background))
+
 
     # http://www.w3.org/TR/PNG/#11IDAT
     if compression is not None:
@@ -229,10 +234,20 @@ def pnmtopng(infile, outfile,
     else:
         scanlines = file_scanlines(infile, width, height)
     write(outfile, scanlines, width, height,
-          interlace=interlace,
+          interlaced=interlace,
           transparent=transparent,
+          background=background,
           compression=compression)
 
+
+def color_triple(color):
+    """
+    Convert a command line color value to a RGB triple of integers.
+    """
+    if color.startswith('#') and len(color) == 7:
+        return (int(color[1:3], 16),
+                int(color[3:5], 16),
+                int(color[5:7], 16))
 
 def _main():
     """
@@ -271,6 +286,11 @@ def _main():
     if options.alpha:
         options.alpha = open(options.alpha, 'rb')
     outfile = sys.stdout
+    # Convert options
+    if options.transparent is not None:
+        options.transparent = color_triple(options.transparent)
+    if options.background is not None:
+        options.background = color_triple(options.background)
     # Encode PNM to PNG
     pnmtopng(infile, outfile,
              interlace=options.interlace,
