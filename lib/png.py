@@ -222,12 +222,12 @@ def pnmtopng(infile, outfile,
     if alpha is not None:
         if read_pnm_header(alpha, 'P5') != (width, height):
             raise ValueError('alpha channel has different image size')
-    pixels = array('B')
-    pixels.fromfile(infile, 3*width*height)
     if interlace:
+        pixels = array('B')
+        pixels.fromfile(infile, 3*width*height)
         scanlines = array_scanlines_interlace(pixels, width, height)
     else:
-        scanlines = array_scanlines(pixels, width, height)
+        scanlines = file_scanlines(infile, width, height)
     write(outfile, scanlines, width, height,
           interlace=interlace,
           transparent=transparent,
