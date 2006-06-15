@@ -52,6 +52,7 @@ __author__ = '$Author$'
 
 
 import sys, zlib, struct
+from array import array
 
 
 def scanlines(width, height, pixels):
@@ -110,56 +111,75 @@ def write_chunk(outfile, tag, data):
     outfile.write(struct.pack("!I", checksum))
 
 
-def write(outfile, width, height, pixels,
+def write_idat(outfile, data, compression):
+    """
+    Write an IDAT chunk of compressed pixel data.
+    http://www.w3.org/TR/PNG/#11IDAT
+    """
+    data = data.tostring()
+    if compression is not None:
+        data = zlib.compress(data, compression)
+    else:
+        data = zlib.compress(data)
+    write_chunk(outfile, 'IDAT', data)
+
+
+def write(outfile,
+          scanlines, width, height,
           interlace = False, transparent = None,
           compression=None):
     """
-    Write a 24bpp RGB opaque PNG to the output file.
-    http://www.w3.org/TR/PNG/
+    Create a PNG image from RGB data.
 
-    The pixels parameter must be a string of length 3*width*height,
-    containing the red, green, blue values for each pixel in rows from
-    left to right, top to bottom (the same format that you get when
-    reading a PPM file with maxval <= 255).
+    Arguments:
+    outfile - something with a write() method
+    scanlines - iterator that returns scanlines from top to bottom
+    width, height - size of the image in pixels
+    interlace - enable Adam7 interlacing
+    transparent - create a tRNS chunk
+    compression - zlib compression level (0-9)
 
-    If the interlace parameter is set to True, the pixels will be
-    re-arranged with the Adam7 scheme. This is good for incremental
-    display over a slow network connection, but it increases encoding
-    time by a factor of 5 and file size by a factor of 1.2 or so.
+    Each scanline must be an array of bytes of length 3*width,
+    containing the red, green, blue values for each pixel.
+
+    If the interlace parameter is set to True, the scanlines are
+    expected to be interlaced with the Adam7 scheme. This is good for
+    incremental display over a slow network connection, but it
+    increases encoding time and memory use by an order of magnitude
+    and output file size by a factor of 1.2 or so.
 
     The transparent parameter can be used to mark a color as
     transparent in the resulting image file. If specified, it must be
-    a string of length 3 with the red, green, blue values.
+    a tuple with three integer values for red, green, blue.
     """
-    assert type(pixels) is str
-    assert len(pixels) == 3*width*height
     if transparent is not None:
-        assert type(transparent) is str
         assert len(transparent) == 3
-    if interlace:
-        interlace = 1
-        data = scanlines_interlace(width, height, pixels)
-    else:
-        interlace = 0
-        data = scanlines(width, height, pixels)
+        assert type(transparent[0]) is int
+        assert type(transparent[1]) is int
+        assert type(transparent[2]) is int
+
     # http://www.w3.org/TR/PNG/#5PNG-file-signature
     outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
+
     # http://www.w3.org/TR/PNG/#11IHDR
-    write_chunk(outfile, 'IHDR', struct.pack("!2I5B",
-                                             width, height,
-                                             8, 2, 0, 0, interlace))
+    if interlace:
+        interlace = 1
+    else:
+        interlace = 0
+    write_chunk(outfile, 'IHDR',
+        struct.pack("!2I5B", width, height, 8, 2, 0, 0, interlace))
+
     # http://www.w3.org/TR/PNG/#11tRNS
     if transparent is not None:
-        transparent = struct.pack("!3H",
-                                  ord(transparent[0]),
-                                  ord(transparent[1]),
-                                  ord(transparent[2]))
-        write_chunk(outfile, 'tRNS', transparent)
+        write_chunk(outfile, 'tRNS', struct.pack("!3H", transparent))
+
     # http://www.w3.org/TR/PNG/#11IDAT
-    if compression is not None:
-        write_chunk(outfile, 'IDAT', zlib.compress(data, compression))
-    else:
-        write_chunk(outfile, 'IDAT', zlib.compress(data))
+    data = array('B')
+    for scanline in scanlines:
+        data.append(0)
+        data.extend(scanline)
+    write_idat(outfile, data, compression)
+
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
 
@@ -184,6 +204,16 @@ def read_pnm_header(infile, supported='P6'):
     return int(header[1]), int(header[2])
 
 
+def scanline_iterator(infile, width, height):
+    """
+    Generator for scanlines.
+    """
+    for y in range(height):
+        scanline = array('B')
+        scanline.fromfile(infile, 3 * width)
+        yield scanline
+
+
 def pnmtopng(infile, outfile,
         interlace=None, transparent=None, background=None,
         alpha=None, gamma=None, compression=None):
@@ -194,9 +224,7 @@ def pnmtopng(infile, outfile,
     if alpha is not None:
         if read_pnm_header(alpha, 'P5') != (width, height):
             raise ValueError('alpha channel has different image size')
-    write(outfile, width, height, infile.read(),
-          interlace=interlace,
-          compression=compression)
+    write(outfile, scanline_iterator(infile, width, height), width, height)
 
 
 def _main():
