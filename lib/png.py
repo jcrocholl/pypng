@@ -55,49 +55,6 @@ import sys, zlib, struct
 from array import array
 
 
-def scanlines(width, height, pixels):
-    """
-    Insert a filter type marker byte before every scanline.
-    """
-    result = []
-    scanline = 3*width
-    for y in range(height):
-        result.append(chr(0))
-        offset = y*scanline
-        result.append(pixels[offset:offset+scanline])
-    return ''.join(result)
-
-
-def scanlines_interlace(width, height, pixels):
-    """
-    Interlace and insert a filter type marker byte before every scanline.
-    http://www.w3.org/TR/PNG/#8InterlaceMethods
-    """
-    adam7 = ((0, 0, 8, 8),
-             (4, 0, 8, 8),
-             (0, 4, 4, 8),
-             (2, 0, 4, 4),
-             (0, 2, 2, 4),
-             (1, 0, 2, 2),
-             (0, 1, 1, 2))
-    result = []
-    scanline = 3*width
-    for xstart, ystart, xstep, ystep in adam7:
-        for y in range(ystart, height, ystep):
-            if xstart < width:
-                result.append(chr(0))
-                if xstep == 1:
-                    offset = scanline*y
-                    result.append(pixels[offset:offset+scanline])
-                else:
-                    row = []
-                    for x in range(xstart, width, xstep):
-                        offset = scanline*y + 3*x
-                        row.append(pixels[offset:offset+3])
-                    result.append(''.join(row))
-    return ''.join(result)
-
-
 def write_chunk(outfile, tag, data):
     """
     Write a PNG chunk to the output file, including length and checksum.
@@ -114,8 +71,7 @@ def write_chunk(outfile, tag, data):
 def write(outfile,
           scanlines, width, height,
           interlace = False, transparent = None,
-          compression=None,
-          chunk_limit=2**20):
+          compression=None, chunk_limit=2**20):
     """
     Create a PNG image from RGB data.
 
@@ -201,7 +157,7 @@ def read_pnm_header(infile, supported='P6'):
     if header[0] not in supported:
         raise NotImplementedError('file format %s not supported' % header[0])
     if header[0] != 'P4' and header[3] != '255':
-        raise NotImplementedError('maxval %s not supported' % maxval)
+        raise NotImplementedError('maxval %s not supported' % header[3])
     return int(header[1]), int(header[2])
 
 
@@ -227,6 +183,37 @@ def array_scanlines(pixels, width, height):
         yield pixels[start:stop]
 
 
+def array_scanlines_interlace(pixels, width, height):
+    """
+    Interlace and insert a filter type marker byte before every scanline.
+    http://www.w3.org/TR/PNG/#8InterlaceMethods
+    """
+    adam7 = ((0, 0, 8, 8),
+             (4, 0, 8, 8),
+             (0, 4, 4, 8),
+             (2, 0, 4, 4),
+             (0, 2, 2, 4),
+             (1, 0, 2, 2),
+             (0, 1, 1, 2))
+    row_skip = 3 * width
+    for xstart, ystart, xstep, ystep in adam7:
+        for y in range(ystart, height, ystep):
+            if xstart < width:
+                if xstep == 1:
+                    offset = y*row_skip
+                    yield pixels[offset:offset+row_skip]
+                else:
+                    row = []
+                    offset = y*row_skip + xstart*3
+                    skip = 3*xstep
+                    for x in range(xstart, width, xstep):
+                        row.append(pixels[offset])
+                        row.append(pixels[offset+1])
+                        row.append(pixels[offset+2])
+                        offset += skip
+                    yield array('B', row)
+
+
 def pnmtopng(infile, outfile,
         interlace=None, transparent=None, background=None,
         alpha=None, gamma=None, compression=None):
@@ -239,8 +226,14 @@ def pnmtopng(infile, outfile,
             raise ValueError('alpha channel has different image size')
     pixels = array('B')
     pixels.fromfile(infile, 3*width*height)
-    scanlines = array_scanlines(pixels, width, height)
-    write(outfile, scanlines, width, height)
+    if interlace:
+        scanlines = array_scanlines_interlace(pixels, width, height)
+    else:
+        scanlines = array_scanlines(pixels, width, height)
+    write(outfile, scanlines, width, height,
+          interlace=interlace,
+          transparent=transparent,
+          compression=compression)
 
 
 def _main():
