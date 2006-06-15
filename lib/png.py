@@ -221,14 +221,11 @@ def array_scanlines_interlace(pixels, width, height):
 
 def pnmtopng(infile, outfile,
         interlace=None, transparent=None, background=None,
-        alpha=None, gamma=None, compression=None):
+        gamma=None, compression=None):
     """
     Encode a PNM file into a PNG file.
     """
     width, height = read_pnm_header(infile)
-    if alpha is not None:
-        if read_pnm_header(alpha, 'P5') != (width, height):
-            raise ValueError('alpha channel has different image size')
     if interlace:
         pixels = array('B')
         pixels.fromfile(infile, 3*width*height)
@@ -268,9 +265,6 @@ def _main():
     parser.add_option("--background",
                       action="store", type="string", metavar="color",
                       help="store the specified background color")
-    parser.add_option("--alpha",
-                      action="store", type="string", metavar="pgmfile",
-                      help="alpha channel transparency (RGBA)")
     parser.add_option("--gamma",
                       action="store", type="float", metavar="value",
                       help="store the specified gamma value")
@@ -285,8 +279,6 @@ def _main():
         infile = open(args[0], 'rb')
     else:
         parser.error("more than one input file")
-    if options.alpha:
-        options.alpha = open(options.alpha, 'rb')
     outfile = sys.stdout
     # Convert options
     if options.transparent is not None:
@@ -299,7 +291,6 @@ def _main():
              transparent=options.transparent,
              background=options.background,
              gamma=options.gamma,
-             alpha=options.alpha,
              compression=options.compression)
 
 
