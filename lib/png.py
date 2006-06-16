@@ -174,9 +174,10 @@ def file_scanlines(infile, width, height):
     """
     Generator for scanlines from an input file.
     """
+    row_bytes = 3*width
     for y in range(height):
         scanline = array('B')
-        scanline.fromfile(infile, 3 * width)
+        scanline.fromfile(infile, row_bytes)
         yield scanline
 
 
@@ -204,16 +205,16 @@ def array_scanlines_interlace(pixels, width, height):
              (0, 2, 2, 4),
              (1, 0, 2, 2),
              (0, 1, 1, 2))
-    row_skip = 3 * width
+    row_bytes = 3 * width
     for xstart, ystart, xstep, ystep in adam7:
         for y in range(ystart, height, ystep):
             if xstart < width:
                 if xstep == 1:
-                    offset = y*row_skip
-                    yield pixels[offset:offset+row_skip]
+                    offset = y*row_bytes
+                    yield pixels[offset:offset+row_bytes]
                 else:
                     row = array('B')
-                    offset = y*row_skip + xstart*3
+                    offset = y*row_bytes + xstart*3
                     skip = 3*xstep
                     for x in range(xstart, width, xstep):
                         row.extend(pixels[offset:offset+3])
