@@ -327,7 +327,12 @@ def _main():
     parser.add_option("--compression",
                       action="store", type="int", metavar="level",
                       help="zlib compression level (0-9)")
+    parser.add_option("--test", default=False, action="store_true",
+                      help="run regression tests")
     (options, args) = parser.parse_args()
+    # Run regression tests
+    if options.test:
+        return test_suite()
     # Prepare input and output files
     if len(args) == 0:
         infile = sys.stdin
@@ -348,10 +353,6 @@ def _main():
              background=options.background,
              gamma=options.gamma,
              compression=options.compression)
-
-
-if __name__ == '__main__':
-    _main()
 
 
 # Below is a big stack of test image generators
@@ -472,3 +473,15 @@ def _write_test(fname):
     i = interleave_planes(i, a, 256, 256, 3, 1)
     scanlines = array_scanlines(i, 256, 256, 4)
     write(out, scanlines, 256, 256, hasalpha=True)
+
+
+def test_suite():
+    """
+    Run regression tests and produce PNG files in current directory.
+    """
+    _write_test('mixed.png')
+    return 0
+
+
+if __name__ == '__main__':
+    _main()
