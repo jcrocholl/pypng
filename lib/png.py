@@ -2,6 +2,9 @@
 # png.py - PNG encoder in pure Python
 # Copyright (C) 2006 Johann C. Rocholl <johann@browsershots.org>
 #
+# Alpha-channel, grey-scale and 16-bit/plane support added by
+# Nicko van Someren <nicko@nicko.org>
+#
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
 # (the "Software"), to deal in the Software without restriction,
@@ -70,7 +73,8 @@ def write_chunk(outfile, tag, data):
 
 def write(outfile, scanlines, width, height,
           interlaced=False, transparent=None, background=None,
-          gamma=None, compression=None, chunk_limit=2**20):
+          gamma=None, compression=None, chunk_limit=2**20,
+	  greyscale=False, hasalpha=False, bytespersample=1):
     """
     Create a PNG image from RGB data.
 
@@ -101,6 +105,27 @@ def write(outfile, scanlines, width, height,
         assert type(transparent[1]) is int
         assert type(transparent[2]) is int
 
+    if bytespersample < 1 or bytespersample > 2:
+	raise ValueError("Bytes per sample must be 1 or 2")
+
+    if hasalpha and transparent is not None:
+	raise ValueError("Transparent colour not allowed with alpha channel images")
+
+    if greyscale:
+	if hasalpha:
+	    colourType = 4
+	    psize = bytespersample * 2
+	else:
+	    colourType = 0
+	    psize = bytespersample
+    else:
+	if hasalpha:
+	    colourType = 6
+	    psize = bytespersample * 4
+	else:
+	    colourType = 2
+	    psize = bytespersample * 3
+
     # http://www.w3.org/TR/PNG/#5PNG-file-signature
     outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
 
@@ -110,7 +135,7 @@ def write(outfile, scanlines, width, height,
     else:
         interlaced = 0
     write_chunk(outfile, 'IHDR',
-        struct.pack("!2I5B", width, height, 8, 2, 0, 0, interlaced))
+        struct.pack("!2I5B", width, height, bytespersample * 8, colourType, 0, 0, interlaced))
 
     # http://www.w3.org/TR/PNG/#11tRNS
     if transparent is not None:
@@ -170,22 +195,22 @@ def read_pnm_header(infile, supported='P6'):
     return int(header[1]), int(header[2])
 
 
-def file_scanlines(infile, width, height):
+def file_scanlines(infile, width, height, psize):
     """
     Generator for scanlines from an input file.
     """
-    row_bytes = 3*width
+    row_bytes = psize*width
     for y in range(height):
         scanline = array('B')
         scanline.fromfile(infile, row_bytes)
         yield scanline
 
 
-def array_scanlines(pixels, width, height):
+def array_scanlines(pixels, width, height, psize):
     """
     Generator for scanlines from an array.
     """
-    width *= 3
+    width *= psize
     stop = 0
     for y in range(height):
         start = stop
@@ -193,7 +218,7 @@ def array_scanlines(pixels, width, height):
         yield pixels[start:stop]
 
 
-def array_scanlines_interlace(pixels, width, height):
+def array_scanlines_interlace(pixels, width, height, psize):
     """
     Generator for interlaced scanlines from an array.
     http://www.w3.org/TR/PNG/#8InterlaceMethods
@@ -205,7 +230,7 @@ def array_scanlines_interlace(pixels, width, height):
              (0, 2, 2, 4),
              (1, 0, 2, 2),
              (0, 1, 1, 2))
-    row_bytes = 3 * width
+    row_bytes = psize * width
     for xstart, ystart, xstep, ystep in adam7:
         for y in range(ystart, height, ystep):
             if xstart < width:
@@ -214,12 +239,31 @@ def array_scanlines_interlace(pixels, width, height):
                     yield pixels[offset:offset+row_bytes]
                 else:
                     row = array('B')
-                    offset = y*row_bytes + xstart*3
-                    skip = 3*xstep
+                    offset = y*row_bytes + xstart*psize
+                    skip = psize*xstep
                     for x in range(xstart, width, xstep):
-                        row.extend(pixels[offset:offset+3])
+                        row.extend(pixels[offset:offset+psize])
                         offset += skip
                     yield row
+
+def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
+    pixelcount = width * height
+    newpsize = ipsize + apsize
+    itotal = pixelcount * ipsize
+    atotal = pixelcount * apsize
+    newtotal = pixelcount * newpsize
+    print "w=%s, h=%s, total=%s, ips=%s, aps=%s, nps=%s, itotal=%s, atotal=%s, ntotal=%s" % (width, height, pixelcount, ipsize, apsize, newpsize, itotal, atotal, newtotal)
+    # Set up the output buffer
+    out = array('B')
+    # It's annoying that there is no cheap way to set the array size :-(
+    out.extend(ipixels)
+    out.extend(apixels)
+    # Interleave in the pixel data
+    for i in range(ipsize):
+	out[i:newtotal:newpsize] = ipixels[i:itotal:ipsize]
+    for i in range(apsize):
+	out[i+ipsize:newtotal:newpsize] = apixels[i:atotal:apsize]
+    return out
 
 
 def pnmtopng(infile, outfile,
@@ -232,9 +276,9 @@ def pnmtopng(infile, outfile,
     if interlace:
         pixels = array('B')
         pixels.fromfile(infile, 3*width*height)
-        scanlines = array_scanlines_interlace(pixels, width, height)
+        scanlines = array_scanlines_interlace(pixels, width, height, 3)
     else:
-        scanlines = file_scanlines(infile, width, height)
+        scanlines = file_scanlines(infile, width, height, 3)
     write(outfile, scanlines, width, height,
           interlaced=interlace,
           transparent=transparent,
@@ -252,6 +296,125 @@ def color_triple(color):
                 int(color[3:5], 16),
                 int(color[5:7], 16))
 
+
+# Here on down is a big stack of test image generators
+
+def _test_gradient_horizonal_lr(x,y):
+    return x
+
+
+def _test_gradient_horizonal_rl(x,y):
+    return 1-x
+
+def _test_gradient_vertical_tb(x,y):
+    return y
+
+def _test_gradient_vertical_bt(x,y):
+    return 1-y
+
+import math
+
+def _test_radial_tl(x,y):
+    return max(1-math.sqrt(x*x+y*y), 0.0)
+
+def _test_radial_center(x,y):
+    return _test_radial_tl(x-0.5,y-0.5)
+
+def _test_radial_tr(x,y):
+    return _test_radial_tl(1-x, y)
+
+def _test_radial_bl(x,y):
+    return _test_radial_tl(x, 1-y)
+
+def _test_radial_br(x,y):
+    return _test_radial_tl(1-x, 1-y)
+
+def _test_stripe(x,n):
+    return 1.0*(int(x*n) & 1)
+
+def _test_stripe_h_2(x,y):
+    return _test_stripe(x,2)
+
+def _test_stripe_h_4(x,y):
+    return _test_stripe(x,4)
+
+def _test_stripe_h_10(x,y):
+    return _test_stripe(x,10)
+
+def _test_stripe_v_2(x,y):
+    return _test_stripe(y,2)
+
+def _test_stripe_v_4(x,y):
+    return _test_stripe(y,4)
+
+def _test_stripe_v_10(x,y):
+    return _test_stripe(y,10)
+
+def _test_stripe_lr_10(x,y):
+    return _test_stripe(x+y,10)
+
+def _test_stripe_rl_10(x,y):
+    return _test_stripe(x-y,10)
+
+def _test_checker(x,y,n):
+    return 1.0*((int(x*n) & 1) ^ (int(y*n) & 1))
+
+def _test_checker_8(x,y):
+    return _test_checker(x,y,8)
+
+def _test_checker_15(x,y):
+    return _test_checker(x,y,15)
+
+_test_paterns = {
+    "GLR" : _test_gradient_horizonal_lr,
+    "GRL" : _test_gradient_horizonal_rl,
+    "GTB" : _test_gradient_vertical_tb,
+    "GBT" : _test_gradient_vertical_bt,
+    "RTL" : _test_radial_tl,
+    "RTR" : _test_radial_tr,
+    "RBL" : _test_radial_bl,
+    "RBR" : _test_radial_br,
+    "RCTR" : _test_radial_center,
+    "HS2" : _test_stripe_h_2,
+    "HS4" : _test_stripe_h_4,
+    "HS10" : _test_stripe_h_10,
+    "VS2" : _test_stripe_v_2,
+    "VS4" : _test_stripe_v_4,
+    "VS10" : _test_stripe_v_10,
+    "LRS" : _test_stripe_lr_10,
+    "RLS" : _test_stripe_rl_10,
+    "CK8" : _test_checker_8,
+    "CK15" : _test_checker_15,
+}
+
+def _test_patern(width, height, depth, patern):
+    a = array('B')
+    fw = float(width)
+    fh = float(height)
+    pfun = _test_paterns[patern]
+    if depth == 1:
+	for y in range(height):
+	    for x in range(width):
+		a.append(int(pfun(float(x)/fw,float(y)/fh) * 255))
+    elif depth == 2:
+	for y in range(height):
+	    for x in range(width):
+		v = int(pfun(float(x)/fw,float(y)/fh) * 65535)
+		a.append(v >> 8)
+		a.append(v & 0xff)
+    return a
+
+def _write_test(fname):
+    out = open(fname, "wb")
+    r = _test_patern(256,256,1,"GTB")
+    g = _test_patern(256,256,1,"RCTR")
+    b = _test_patern(256,256,1,"LRS")
+    a = _test_patern(256,256,1,"GLR")
+    i = interleave_planes(r, g, 256, 256, 1, 1)
+    i = interleave_planes(i, b, 256, 256, 2, 1)
+    i = interleave_planes(i, a, 256, 256, 3, 1)
+    scanlines = array_scanlines(i, 256, 256, 4)
+    write(out, scanlines, 256, 256, hasalpha=True)
 
 def _main():
     """
@@ -301,3 +464,4 @@ def _main():
 
 if __name__ == '__main__':
     _main()
+
