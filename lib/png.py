@@ -211,51 +211,85 @@ def write(outfile, scanlines, width, height,
     write_chunk(outfile, 'IEND', '')
 
 
-def reverse_sub(x, a, b, c):
-    return (x + a) & 0xff
+def _reconstruct_sub(pixels, offset, row_bytes, psize):
+    """Reverse sub filter."""
+    for index in range(row_bytes):
+        x = pixels[offset]
+        if index < psize:
+            a = 0
+        else:
+            a = pixels[offset-psize]
+        pixels[offset] = (x + a) & 0xff
+        offset += 1
 
-def reverse_up(x, a, b, c):
-    return (x + b) & 0xff
 
-def reverse_average(x, a, b, c):
-    return (x + (a + b) / 2) & 0xff
+def _reconstruct_up(pixels, offset, row_bytes, psize):
+    """Reverse up filter."""
+    above = offset - row_bytes
+    for index in range(row_bytes):
+        x = pixels[offset]
+        if above < 0:
+            b = 0
+        else:
+            b = pixels[above]
+        pixels[offset] = (x + b) & 0xff
+        offset += 1
+        above += 1
 
-def reverse_paeth(x, a, b, c):
-    p = a + b - c
-    pa = abs(p - a)
-    pb = abs(p - b)
-    pc = abs(p - c)
-    if pa <= pb and pa <= pc:
-        pr = a
-    elif pb <= pc:
-        pr = b
-    else:
-        pr = c
-    return (x + pr) & 0xff
 
-def reconstruct(pixels, offset, row_bytes, psize, func):
-    """
-    Reverse filter.
-    """
+def _reconstruct_average(pixels, offset, row_bytes, psize):
+    """Reverse average filter."""
     above = offset - row_bytes
     for index in range(row_bytes):
         x = pixels[offset]
         if index < psize:
-            a = c = 0
-            if above < 0:
-                b = 0
-            else:
-                b = pixels[above]
+            a = 0
         else:
             a = pixels[offset-psize]
-            if above < 0:
-                b = c = 0
-            else:
-                b = pixels[above]
-                c = pixels[above-psize]
-        pixels[offset] = func(x, a, b, c)
+        if above < 0:
+            b = 0
+        else:
+            b = pixels[above]
+        pixels[offset] = (x + (a + b) / 2) & 0xff
         offset += 1
         above += 1
+
+
+def _reconstruct_paeth(pixels, offset, row_bytes, psize):
+    """Reverse Paeth filter."""
+    offset_a = offset - psize
+    offset_b = offset - row_bytes
+    offset_c = offset_b - psize
+    for index in range(row_bytes):
+        x = pixels[offset]
+        if index < psize:
+            a = c = 0
+            # if offset_b < 0:
+            #     b = 0
+            # else:
+            b = pixels[offset_b]
+        else:
+            a = pixels[offset_a]
+            # if offset_b < 0:
+            #     b = c = 0
+            # else:
+            b = pixels[offset_b]
+            c = pixels[offset_c]
+        p = a + b - c
+        pa = abs(p - a)
+        pb = abs(p - b)
+        pc = abs(p - c)
+        if pa <= pb and pa <= pc:
+            pr = a
+        elif pb <= pc:
+            pr = b
+        else:
+            pr = c
+        pixels[offset] = (x + pr) & 0xff
+        offset += 1
+        offset_a += 1
+        offset_b += 1
+        offset_c += 1
 
 
 def read(infile):
@@ -290,17 +324,17 @@ def read(infile):
     row_bytes = 3*width
     for y in range(height):
         filter_type = ord(scanlines[offset])
-        print >> sys.stderr, y, filter_type
+        # print >> sys.stderr, y, filter_type
         offset += 1
         pixels.fromstring(scanlines[offset:offset+row_bytes])
         if filter_type == 1:
-            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_sub)
+            _reconstruct_sub(pixels, y*row_bytes, row_bytes, 3)
         elif filter_type == 2:
-            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_up)
+            _reconstruct_up(pixels, y*row_bytes, row_bytes, 3)
         elif filter_type == 3:
-            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_average)
+            _reconstruct_average(pixels, y*row_bytes, row_bytes, 3)
         elif filter_type == 4:
-            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_paeth)
+            _reconstruct_paeth(pixels, y*row_bytes, row_bytes, 3)
         offset += row_bytes
     return width, height, pixels
 
