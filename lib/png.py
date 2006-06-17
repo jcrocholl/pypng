@@ -66,14 +66,30 @@ from array import array
 def write_chunk(outfile, tag, data):
     """
     Write a PNG chunk to the output file, including length and checksum.
-    http://www.w3.org/TR/PNG/#5Chunk-layout
     """
+    # http://www.w3.org/TR/PNG/#5Chunk-layout
     outfile.write(struct.pack("!I", len(data)))
     outfile.write(tag)
     outfile.write(data)
     checksum = zlib.crc32(tag)
     checksum = zlib.crc32(data, checksum)
     outfile.write(struct.pack("!I", checksum))
+
+
+def read_chunk(infile):
+    """
+    Read a PNG chunk from the input file, return tag name and data.
+    """
+    # http://www.w3.org/TR/PNG/#5Chunk-layout
+    data_bytes, tag = struct.unpack('!I4s', infile.read(8))
+    data = infile.read(data_bytes)
+    checksum = struct.unpack('!i', infile.read(4))[0]
+    verify = zlib.crc32(tag)
+    verify = zlib.crc32(data, verify)
+    if checksum != verify:
+        raise ValueError('checksum error in %s chunk: %x != %x'
+                         % (tag, checksum, verify))
+    return tag, data
 
 
 def write(outfile, scanlines, width, height,
@@ -194,6 +210,99 @@ def write(outfile, scanlines, width, height,
     # http://www.w3.org/TR/PNG/#11IEND
     write_chunk(outfile, 'IEND', '')
 
+
+def reverse_sub(x, a, b, c):
+    return (x + a) & 0xff
+
+def reverse_up(x, a, b, c):
+    return (x + b) & 0xff
+
+def reverse_average(x, a, b, c):
+    return (x + (a + b) / 2) & 0xff
+
+def reverse_paeth(x, a, b, c):
+    p = a + b - c
+    pa = abs(p - a)
+    pb = abs(p - b)
+    pc = abs(p - c)
+    if pa <= pb and pa <= pc:
+        pr = a
+    elif pb <= pc:
+        pr = b
+    else:
+        pr = c
+    return (x + pr) & 0xff
+
+def reconstruct(pixels, offset, row_bytes, psize, func):
+    """
+    Reverse filter.
+    """
+    above = offset - row_bytes
+    for index in range(row_bytes):
+        x = pixels[offset]
+        if index < psize:
+            a = c = 0
+            if above < 0:
+                b = 0
+            else:
+                b = pixels[above]
+        else:
+            a = pixels[offset-psize]
+            if above < 0:
+                b = c = 0
+            else:
+                b = pixels[above]
+                c = pixels[above-psize]
+        pixels[offset] = func(x, a, b, c)
+        offset += 1
+        above += 1
+
+
+def read(infile):
+    """
+    Read a simple PNG file, return width, height, pixels.
+
+    This function is a very early prototype with limited flexibility
+    and excessive use of memory.
+    """
+    signature = infile.read(8)
+    assert signature == struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10)
+    compressed = []
+    while True:
+        tag, data = read_chunk(infile)
+        # print tag, len(data)
+        if tag == 'IHDR': # http://www.w3.org/TR/PNG/#11IHDR
+            (width, height, bits_per_sample, color_type,
+             compression_method, filter_method,
+             interlaced) = struct.unpack("!2I5B", data)
+            assert bits_per_sample == 8
+            assert color_type == 2
+            assert compression_method == 0
+            assert filter_method == 0
+            assert interlaced == 0
+        if tag == 'IDAT': # http://www.w3.org/TR/PNG/#11IDAT
+            compressed.append(data)
+        if tag == 'IEND': # http://www.w3.org/TR/PNG/#11IEND
+            break
+    scanlines = zlib.decompress(''.join(compressed))
+    pixels = array('B')
+    offset = 0
+    row_bytes = 3*width
+    for y in range(height):
+        filter_type = ord(scanlines[offset])
+        print >> sys.stderr, y, filter_type
+        offset += 1
+        pixels.fromstring(scanlines[offset:offset+row_bytes])
+        if filter_type == 1:
+            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_sub)
+        elif filter_type == 2:
+            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_up)
+        elif filter_type == 3:
+            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_average)
+        elif filter_type == 4:
+            reconstruct(pixels, y*row_bytes, row_bytes, 3, reverse_paeth)
+        offset += row_bytes
+    return width, height, pixels
 
 def read_pnm_header(infile, supported='P6'):
     """
