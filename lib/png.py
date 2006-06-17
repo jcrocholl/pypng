@@ -253,6 +253,9 @@ def array_scanlines_interlace(pixels, width, height, psize):
 
 
 def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
+    """
+    Interleave color planes, e.g. RGB + A = RGBA.
+    """
     pixelcount = width * height
     newpsize = ipsize + apsize
     itotal = pixelcount * ipsize
@@ -401,7 +404,7 @@ def _test_radial_bl(x, y):
 def _test_radial_br(x, y):
     return _test_radial_tl(1-x, 1-y)
 
-def _test_stripe(x,n):
+def _test_stripe(x, n):
     return 1.0*(int(x*n) & 1)
 
 def _test_stripe_h_2(x, y):
@@ -428,7 +431,7 @@ def _test_stripe_lr_10(x, y):
 def _test_stripe_rl_10(x, y):
     return _test_stripe(x-y, 10)
 
-def _test_checker(x, y,n):
+def _test_checker(x, y, n):
     return 1.0*((int(x*n) & 1) ^ (int(y*n) & 1))
 
 def _test_checker_8(x, y):
@@ -462,6 +465,9 @@ _test_patterns = {
 
 
 def _test_pattern(width, height, depth, pattern):
+    """
+    Generate an image from a test pattern.
+    """
     a = array('B')
     fw = float(width)
     fh = float(height)
@@ -469,17 +475,20 @@ def _test_pattern(width, height, depth, pattern):
     if depth == 1:
         for y in range(height):
             for x in range(width):
-                a.append(int(pfun(float(x)/fw,float(y)/fh) * 255))
+                a.append(int(pfun(float(x)/fw, float(y)/fh) * 255))
     elif depth == 2:
         for y in range(height):
             for x in range(width):
-                v = int(pfun(float(x)/fw,float(y)/fh) * 65535)
+                v = int(pfun(float(x)/fw, float(y)/fh) * 65535)
                 a.append(v >> 8)
                 a.append(v & 0xff)
     return a
 
 
 def _write_test(fname):
+    """
+    Create a test image with alpha channel.
+    """
     out = open(fname, "wb")
     r = _test_pattern(256, 256, 1, "GTB")
     g = _test_pattern(256, 256, 1, "RCTR")

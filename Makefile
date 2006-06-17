@@ -44,7 +44,11 @@ test/%.ppm : test/%.png
 install :
 	python setup.py install
 
+pylint :
+	pylint -iy --reports=no --good-names=x,y,r,g,b,a,i lib/png.py \
+	| grep -v _test_
+
 README :
-	pydoc png > $@
+	pydoc lib/png.py > $@
 
 .PHONY : README test/large.ppm

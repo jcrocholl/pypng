@@ -4,7 +4,7 @@ NAME
     png - PNG encoder in pure Python
 
 FILE
-    /usr/lib/python2.4/site-packages/png.py
+    /home/johann/v03/pypng/lib/png.py
 
 DESCRIPTION
     This is an implementation of a subset of the PNG specification at
@@ -24,44 +24,63 @@ DESCRIPTION
        following in your python interpreter:
        >>> import png
        >>> help(png)
+    
+    Changelog (recent first):
+    2006-06-17 Alpha-channel, grey-scale, 16-bit/plane support and test
+               suite added by Nicko van Someren <nicko@nicko.org>
+    2006-06-15 Scanline iterator interface to avoid storing the whole
+               input data in memory
+    2006-06-09 Very simple prototype implementation
 
 FUNCTIONS
+    array_scanlines(pixels, width, height, psize)
+        Generator for scanlines from an array.
+    
+    array_scanlines_interlace(pixels, width, height, psize)
+        Generator for interlaced scanlines from an array.
+        http://www.w3.org/TR/PNG/#8InterlaceMethods
+    
+    color_triple(color)
+        Convert a command line color value to a RGB triple of integers.
+    
+    file_scanlines(infile, width, height, psize)
+        Generator for scanlines from an input file.
+    
+    interleave_planes(ipixels, apixels, width, height, ipsize, apsize)
+        Interleave color planes, e.g. RGB + A = RGBA.
+    
     pnmtopng(infile, outfile, interlace=None, transparent=None, background=None, alpha=None, gamma=None, compression=None)
         Encode a PNM file into a PNG file.
     
-    read_header(infile, supported_magic='P6')
-        Read a PNM header and check if the format is supported.
-        
-        Return width and height of the image in pixels.
+    read_pnm_header(infile, supported='P6')
+        Read a PNM header, return width and height of the image in pixels.
     
-    read_pnm_header(infile)
-        Read a PNM header from a file.
-        
-        Return magic, width, height, maxval.
+    test_suite()
+        Run regression tests and produce PNG files in current directory.
     
-    scanlines(width, height, pixels)
-        Insert a filter type marker byte before every scanline.
-    
-    scanlines_interlace(width, height, pixels, scheme=((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2)))
-        Interlace and insert a filter type marker byte before every scanline.
-    
-    write(outfile, width, height, pixels, interlace=False, transparent=None)
-        Write a 24bpp RGB opaque PNG to the output file.
-        http://www.w3.org/TR/PNG/
+    write(outfile, scanlines, width, height, interlaced=False, transparent=None, background=None, gamma=None, compression=None, chunk_limit=1048576, greyscale=False, hasalpha=False, bytespersample=1)
+        Create a PNG image from RGB data.
         
-        The pixels parameter must be a string of length 3*width*height,
-        containing the red, green, blue values for each pixel in rows from
-        left to right, top to bottom (the same format that you get when
-        reading a PPM file with maxval <= 255).
+        Arguments:
+        outfile - something with a write() method
+        scanlines - iterator that returns scanlines from top to bottom
+        width, height - size of the image in pixels
+        interlaced - scanlines are interlaced with Adam7
+        transparent - create a tRNS chunk
+        compression - zlib compression level (0-9)
         
-        If the interlace parameter is set to True, the pixels will be
-        re-arranged with the Adam7 scheme. This is good for incremental
-        display over a slow network connection, but it increases encoding
-        time by a factor of 5 and file size by a factor of 1.2 or so.
+        Each scanline must be an array of bytes of length 3*width,
+        containing the red, green, blue values for each pixel.
+        
+        If the interlaced parameter is set to True, the scanlines are
+        expected to be interlaced with the Adam7 scheme. This is good for
+        incremental display over a slow network connection, but it
+        increases encoding time and memory use by an order of magnitude
+        and output file size by a factor of 1.2 or so.
         
         The transparent parameter can be used to mark a color as
         transparent in the resulting image file. If specified, it must be
-        a string of length 3 with the red, green, blue values.
+        a tuple with three integer values for red, green, blue.
     
     write_chunk(outfile, tag, data)
         Write a PNG chunk to the output file, including length and checksum.
@@ -69,12 +88,11 @@ FUNCTIONS
 
 DATA
     __author__ = '$Author: johann $'
-    __date__ = '$Date: 2006-06-13 12:46:33 +0200 (Tue, 13 Jun 2006) $'
-    __revision__ = '$Rev: 458 $'
-    adam7 = ((0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2...
+    __date__ = '$Date: 2006-06-17 10:51:15 +0200 (Sat, 17 Jun 2006) $'
+    __revision__ = '$Rev: 507 $'
 
 DATE
-    $Date: 2006-06-13 12:46:33 +0200 (Tue, 13 Jun 2006) $
+    $Date: 2006-06-17 10:51:15 +0200 (Sat, 17 Jun 2006) $
 
 AUTHOR
     $Author: johann $
