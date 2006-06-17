@@ -10,8 +10,9 @@ DESCRIPTION
     This is an implementation of a subset of the PNG specification at
     http://www.w3.org/TR/2003/REC-PNG-20031110 in pure Python.
     
-    It currently supports encoding of PPM files or raw data with 24 bits
-    per pixel (RGB) into PNG, with a number of options.
+    It supports encoding of PPM files or raw data with 8/16/24/32/48/64
+    bits per pixel (greyscale, RGB or RGBA) into PNG, with a number of
+    options.
     
     This file can be used in two ways:
     
@@ -24,13 +25,6 @@ DESCRIPTION
        following in your python interpreter:
        >>> import png
        >>> help(png)
-    
-    Changelog (recent first):
-    2006-06-17 Alpha-channel, grey-scale, 16-bit/plane support and test
-               suite added by Nicko van Someren <nicko@nicko.org>
-    2006-06-15 Scanline iterator interface to avoid storing the whole
-               input data in memory
-    2006-06-09 Very simple prototype implementation
 
 FUNCTIONS
     array_scanlines(pixels, width, height, psize)
@@ -58,7 +52,7 @@ FUNCTIONS
     test_suite()
         Run regression tests and produce PNG files in current directory.
     
-    write(outfile, scanlines, width, height, interlaced=False, transparent=None, background=None, gamma=None, compression=None, chunk_limit=1048576, greyscale=False, hasalpha=False, bytespersample=1)
+    write(outfile, scanlines, width, height, interlaced=False, transparent=None, background=None, gamma=None, greyscale=False, has_alpha=False, bytes_per_sample=1, compression=None, chunk_limit=1048576)
         Create a PNG image from RGB data.
         
         Arguments:
@@ -67,10 +61,16 @@ FUNCTIONS
         width, height - size of the image in pixels
         interlaced - scanlines are interlaced with Adam7
         transparent - create a tRNS chunk
-        compression - zlib compression level (0-9)
+        background - create a bKGD chunk
+        gamma - create a gAMA chunk
+        greyscale - input data is greyscale, not RGB
+        has_alpha - input data has alpha channel
+        bytes_per_sample - 8-bit or 16-bit input data
+        compression - zlib compression level (1-9)
+        chunk_limit - write multiple IDAT chunks to preserve memory
         
-        Each scanline must be an array of bytes of length 3*width,
-        containing the red, green, blue values for each pixel.
+        Each scanline must be an array of bytes containing the red, green,
+        blue (or gray, and maybe alpha) values for each pixel.
         
         If the interlaced parameter is set to True, the scanlines are
         expected to be interlaced with the Adam7 scheme. This is good for
@@ -78,23 +78,24 @@ FUNCTIONS
         increases encoding time and memory use by an order of magnitude
         and output file size by a factor of 1.2 or so.
         
-        The transparent parameter can be used to mark a color as
-        transparent in the resulting image file. If specified, it must be
-        a tuple with three integer values for red, green, blue.
+        If specified, the transparent and background parameters must be a
+        tuple with three integer values for red, green, blue.
+        
+        If specified, the gamma parameter must be a float value.
     
     write_chunk(outfile, tag, data)
         Write a PNG chunk to the output file, including length and checksum.
         http://www.w3.org/TR/PNG/#5Chunk-layout
 
 DATA
-    __author__ = '$Author: johann $'
-    __date__ = '$Date: 2006-06-17 10:51:15 +0200 (Sat, 17 Jun 2006) $'
-    __revision__ = '$Rev: 507 $'
+    __author__ = '$Author$'
+    __date__ = '$Date$'
+    __revision__ = '$Rev$'
 
 DATE
-    $Date: 2006-06-17 10:51:15 +0200 (Sat, 17 Jun 2006) $
+    $Date$
 
 AUTHOR
-    $Author: johann $
+    $Author$
 
 

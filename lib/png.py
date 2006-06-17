@@ -21,6 +21,13 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
+# Changelog (recent first):
+# 2006-06-17 Alpha-channel, grey-scale, 16-bit/plane support and test
+#     suite added by Nicko van Someren <nicko@nicko.org>
+# 2006-06-15 Scanline iterator interface to avoid storing the whole
+#     input data in memory
+# 2006-06-09 Very simple prototype implementation
 
 
 """
@@ -29,8 +36,9 @@ PNG encoder in pure Python
 This is an implementation of a subset of the PNG specification at
 http://www.w3.org/TR/2003/REC-PNG-20031110 in pure Python.
 
-It currently supports encoding of PPM files or raw data with 24 bits
-per pixel (RGB) into PNG, with a number of options.
+It supports encoding of PPM files or raw data with 8/16/24/32/48/64
+bits per pixel (greyscale, RGB or RGBA) into PNG, with a number of
+options.
 
 This file can be used in two ways:
 
@@ -43,13 +51,6 @@ This file can be used in two ways:
    following in your python interpreter:
    >>> import png
    >>> help(png)
-
-Changelog (recent first):
-2006-06-17 Alpha-channel, grey-scale, 16-bit/plane support and test
-           suite added by Nicko van Someren <nicko@nicko.org>
-2006-06-15 Scanline iterator interface to avoid storing the whole
-           input data in memory
-2006-06-09 Very simple prototype implementation
 """
 
 
@@ -77,8 +78,8 @@ def write_chunk(outfile, tag, data):
 
 def write(outfile, scanlines, width, height,
           interlaced=False, transparent=None, background=None,
-          gamma=None, compression=None, chunk_limit=2**20,
-          greyscale=False, hasalpha=False, bytespersample=1):
+          gamma=None, greyscale=False, has_alpha=False,
+          bytes_per_sample=1, compression=None, chunk_limit=2**20):
     """
     Create a PNG image from RGB data.
 
@@ -88,10 +89,16 @@ def write(outfile, scanlines, width, height,
     width, height - size of the image in pixels
     interlaced - scanlines are interlaced with Adam7
     transparent - create a tRNS chunk
-    compression - zlib compression level (0-9)
+    background - create a bKGD chunk
+    gamma - create a gAMA chunk
+    greyscale - input data is greyscale, not RGB
+    has_alpha - input data has alpha channel
+    bytes_per_sample - 8-bit or 16-bit input data
+    compression - zlib compression level (1-9)
+    chunk_limit - write multiple IDAT chunks to preserve memory
 
-    Each scanline must be an array of bytes of length 3*width,
-    containing the red, green, blue values for each pixel.
+    Each scanline must be an array of bytes containing the red, green,
+    blue (or gray, and maybe alpha) values for each pixel.
 
     If the interlaced parameter is set to True, the scanlines are
     expected to be interlaced with the Adam7 scheme. This is good for
@@ -99,9 +106,10 @@ def write(outfile, scanlines, width, height,
     increases encoding time and memory use by an order of magnitude
     and output file size by a factor of 1.2 or so.
 
-    The transparent parameter can be used to mark a color as
-    transparent in the resulting image file. If specified, it must be
-    a tuple with three integer values for red, green, blue.
+    If specified, the transparent and background parameters must be a
+    tuple with three integer values for red, green, blue.
+
+    If specified, the gamma parameter must be a float value.
     """
     if transparent is not None:
         assert len(transparent) == 3
@@ -109,26 +117,33 @@ def write(outfile, scanlines, width, height,
         assert type(transparent[1]) is int
         assert type(transparent[2]) is int
 
-    if bytespersample < 1 or bytespersample > 2:
-        raise ValueError("Bytes per sample must be 1 or 2")
+    if bytes_per_sample < 1 or bytes_per_sample > 2:
+        raise ValueError("bytes per sample must be 1 or 2")
 
-    if hasalpha and transparent is not None:
-        raise ValueError("Transparent colour not allowed with alpha channel")
+    if has_alpha and transparent is not None:
+        raise ValueError("transparent color not allowed with alpha channel")
+
+    if gamma is not None:
+        assert type(gamma) is float
+
+    if compression is not None:
+        assert type(compression) is int
+        assert 1 <= compression <= 9
 
     if greyscale:
-        if hasalpha:
-            colour_type = 4
-            psize = bytespersample * 2
+        if has_alpha:
+            color_type = 4
+            psize = bytes_per_sample * 2
         else:
-            colour_type = 0
-            psize = bytespersample
+            color_type = 0
+            psize = bytes_per_sample
     else:
-        if hasalpha:
-            colour_type = 6
-            psize = bytespersample * 4
+        if has_alpha:
+            color_type = 6
+            psize = bytes_per_sample * 4
         else:
-            colour_type = 2
-            psize = bytespersample * 3
+            color_type = 2
+            psize = bytes_per_sample * 3
 
     # http://www.w3.org/TR/PNG/#5PNG-file-signature
     outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
@@ -139,8 +154,8 @@ def write(outfile, scanlines, width, height,
     else:
         interlaced = 0
     write_chunk(outfile, 'IHDR',
-        struct.pack("!2I5B", width, height, bytespersample * 8,
-                    colour_type, 0, 0, interlaced))
+        struct.pack("!2I5B", width, height, bytes_per_sample * 8,
+                    color_type, 0, 0, interlaced))
 
     # http://www.w3.org/TR/PNG/#11tRNS
     if transparent is not None:
@@ -305,7 +320,7 @@ def pnmtopng(infile, outfile,
           background=background,
           gamma=gamma,
           compression=compression,
-          hasalpha=alpha is not None)
+          has_alpha=alpha is not None)
 
 
 def color_triple(color):
@@ -498,7 +513,7 @@ def _write_test(fname):
     i = interleave_planes(i, b, 256, 256, 2, 1)
     i = interleave_planes(i, a, 256, 256, 3, 1)
     scanlines = array_scanlines(i, 256, 256, 4)
-    write(out, scanlines, 256, 256, hasalpha=True)
+    write(out, scanlines, 256, 256, has_alpha=True)
 
 
 def test_suite():
