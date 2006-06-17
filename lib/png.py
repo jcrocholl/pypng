@@ -258,8 +258,6 @@ def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
     itotal = pixelcount * ipsize
     atotal = pixelcount * apsize
     newtotal = pixelcount * newpsize
-    print ("w=%s, h=%s, total=%s, ips=%s, aps=%s, nps=%s, itotal=%s, atotal=%s, ntotal=%s"
-           % (width, height, pixelcount, ipsize, apsize, newpsize, itotal, atotal, newtotal))
     # Set up the output buffer
     out = array('B')
     # It's annoying that there is no cheap way to set the array size :-(
@@ -275,23 +273,36 @@ def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
 
 def pnmtopng(infile, outfile,
         interlace=None, transparent=None, background=None,
-        gamma=None, compression=None):
+        alpha=None, gamma=None, compression=None):
     """
     Encode a PNM file into a PNG file.
     """
     width, height = read_pnm_header(infile)
-    if interlace:
+    if alpha is None and not interlace:
+        scanlines = file_scanlines(infile, width, height, 3)
+    else:
+        psize = 3
         pixels = array('B')
         pixels.fromfile(infile, 3*width*height)
-        scanlines = array_scanlines_interlace(pixels, width, height, 3)
-    else:
-        scanlines = file_scanlines(infile, width, height, 3)
+        if alpha is not None:
+            if read_pnm_header(alpha, 'P5') != (width, height):
+                raise ValueError('alpha channel has different image size')
+            alpha_pixels = array('B')
+            alpha_pixels.fromfile(alpha, width*height)
+            pixels = interleave_planes(pixels, alpha_pixels,
+                                       width, height, psize, 1)
+            psize = 4
+        if interlace:
+            scanlines = array_scanlines_interlace(pixels, width, height, psize)
+        else:
+            scanlines = array_scanlines(pixels, width, height, psize)
     write(outfile, scanlines, width, height,
           interlaced=interlace,
           transparent=transparent,
           background=background,
           gamma=gamma,
-          compression=compression)
+          compression=compression,
+          hasalpha=alpha is not None)
 
 
 def color_triple(color):
@@ -321,6 +332,9 @@ def _main():
     parser.add_option("--background",
                       action="store", type="string", metavar="color",
                       help="store the specified background color")
+    parser.add_option("--alpha",
+                      action="store", type="string", metavar="pgmfile",
+                      help="alpha channel transparency (RGBA)")
     parser.add_option("--gamma",
                       action="store", type="float", metavar="value",
                       help="store the specified gamma value")
@@ -340,6 +354,8 @@ def _main():
         infile = open(args[0], 'rb')
     else:
         parser.error("more than one input file")
+    if options.alpha:
+        options.alpha = open(options.alpha, 'rb')
     outfile = sys.stdout
     # Convert options
     if options.transparent is not None:
@@ -352,6 +368,7 @@ def _main():
              transparent=options.transparent,
              background=options.background,
              gamma=options.gamma,
+             alpha=options.alpha,
              compression=options.compression)
 
 
