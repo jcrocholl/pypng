@@ -50,6 +50,10 @@ pylint :
 testsuite :
 	python lib/png.py --test > test/test-rgb-256.png
 	python lib/png.py --test -A GLR > test/test-rgba-256.png
+	python lib/png.py --test -S 255 > test/test-rgb-255.png
+	python lib/png.py --test -S 255 -A GLR > test/test-rgba-255.png
+	python lib/png.py --test -S 257 > test/test-rgb-257.png
+	python lib/png.py --test -S 257 -A GLR > test/test-rgba-257.png
 
 README :
 	pydoc lib/png.py > $@
