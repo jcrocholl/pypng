@@ -21,6 +21,17 @@
 # ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
+# Contributors (alphabetical):
+# Nicko van Someren <nicko@nicko.org>
+#
+# Changelog (recent first):
+# 2006-06-17 Nicko: Reworked into a class, faster interlacing.
+# 2006-06-17 Johann: Very simple prototype PNG decoder.
+# 2006-06-17 Nicko: Test suite with various image generators.
+# 2006-06-17 Nicko: Alpha-channel, grey-scale, 16-bit/plane support.
+# 2006-06-15 Johann: Scanline iterator interface for large input files.
+# 2006-06-09 Johann: Very simple prototype PNG encoder.
 
 
 """
@@ -43,15 +54,6 @@ This file can be used in two ways:
    following in your python interpreter:
    >>> import png
    >>> help(png)
-
-Changelog (recent first):
-2006-06-17 Reworked into a class. Performance improvements to the
-           interlacing code by Nicko
-2006-06-17 Alpha-channel, grey-scale, 16-bit/plane support and test
-           suite added by Nicko van Someren <nicko@nicko.org>
-2006-06-15 Scanline iterator interface to avoid storing the whole
-           input data in memory
-2006-06-09 Very simple prototype implementation
 """
 
 
@@ -63,19 +65,20 @@ __author__ = '$Author$'
 import sys, zlib, struct, math
 from array import array
 
+
 def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
     """
-    Return an array of pixels consisting of the ipsize bytes of data from each pixel in
-    ipixels followed by the apsize bytes of data from each pixel in apixels, for an
-    image of size width x height.
+    Interleave color planes, e.g. RGB + A = RGBA.
+
+    Return an array of pixels consisting of the ipsize bytes of data
+    from each pixel in ipixels followed by the apsize bytes of data
+    from each pixel in apixels, for an image of size width x height.
     """
     pixelcount = width * height
     newpsize = ipsize + apsize
     itotal = pixelcount * ipsize
     atotal = pixelcount * apsize
     newtotal = pixelcount * newpsize
-    # print ("w=%s, h=%s, total=%s, ips=%s, aps=%s, nps=%s, itotal=%s, atotal=%s, ntotal=%s"
-    #        % (width, height, pixelcount, ipsize, apsize, newpsize, itotal, atotal, newtotal))
     # Set up the output buffer
     out = array('B')
     # It's annoying that there is no cheap way to set the array size :-(
@@ -88,12 +91,13 @@ def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
         out[i+ipsize:newtotal:newpsize] = apixels[i:atotal:apsize]
     return out
 
+
 class PNG:
     def __init__(self, width, height, pixel_bytes=None, alpha_bytes=None,
                  interlaced=False, trans=None,
                  background=None, gamma=None, compression=None,
                  chunk_limit=2**20, greyscale=False, has_alpha=False,
-                 bytespersample=1):
+                 bytes_per_sample=1):
         """
         Create a PNG image from RGB data.
 
@@ -124,8 +128,8 @@ class PNG:
         if alpha_bytes and has_alpha:
             raise ValueError("Extra alpha-channel data must not be supplied if pixels already have alpha data")
         if (alpha_bytes or has_alpha) and trans is not None:
-            raise ValueError("Transparent colour not allowed with alpha channel")
-        if bytespersample < 1 or bytespersample > 2:
+            raise ValueError("Transparent color not allowed with alpha channel")
+        if bytes_per_sample < 1 or bytes_per_sample > 2:
             raise ValueError("Bytes per sample must be 1 or 2")
 
         if trans is not None:
@@ -134,7 +138,7 @@ class PNG:
                     raise ValueError("Transparent greyscale must be a 1-tuple of an integer")
             else:
                 if not (len(trans) == 3 and type(trans[0]) is int and type(trans[1]) is int and type(trans[2]) is int):
-                    raise ValueError("Transparent colour must be a triple of integers")
+                    raise ValueError("Transparent color must be a triple of integers")
 
         if background is not None:
             if greyscale:
@@ -143,7 +147,7 @@ class PNG:
             else:
                 if not (len(background) == 3 and type(background[0]) is int and
                         type(background[1]) is int and type(background[2]) is int):
-                    raise ValueError("Background colour must be a triple of integers")
+                    raise ValueError("Background color must be a triple of integers")
 
         if interlaced:
             self.interlaced = 1
@@ -163,25 +167,25 @@ class PNG:
         self.chunk_limit = chunk_limit
         self.greyscale = greyscale
         self.has_alpha = has_alpha
-        self.bytespersample = bytespersample
+        self.bytes_per_sample = bytes_per_sample
 
     def set_type_and_psize(self, with_alpha):
         if self.greyscale:
-            self.colour_depth = 1
+            self.color_depth = 1
             if with_alpha:
-                self.colour_type = 4
-                self.psize = self.bytespersample * 2
+                self.color_type = 4
+                self.psize = self.bytes_per_sample * 2
             else:
-                self.colour_type = 0
-                self.psize = self.bytespersample
+                self.color_type = 0
+                self.psize = self.bytes_per_sample
         else:
-            self.colour_depth = 3
+            self.color_depth = 3
             if with_alpha:
-                self.colour_type = 6
-                self.psize = self.bytespersample * 4
+                self.color_type = 6
+                self.psize = self.bytes_per_sample * 4
             else:
-                self.colour_type = 2
-                self.psize = self.bytespersample * 3
+                self.color_type = 2
+                self.psize = self.bytes_per_sample * 3
 
     def write_chunk(self, outfile, tag, data):
         """
@@ -207,8 +211,8 @@ class PNG:
         with_alpha = self.has_alpha or self.alpha_bytes
         self.set_type_and_psize(with_alpha)
         if self.alpha_bytes:
-            ipsize = self.bytespersample * self.colour_depth
-            pdata = interleave_planes(pdata, self.alpha_bytes, self.width, self.height, ipsize, self.bytespersample)
+            ipsize = self.bytes_per_sample * self.color_depth
+            pdata = interleave_planes(pdata, self.alpha_bytes, self.width, self.height, ipsize, self.bytes_per_sample)
         if self.interlaced:
             scanlines = self.array_scanlines_interlace(pdata)
         else:
@@ -221,7 +225,7 @@ class PNG:
         """
         if self.interlace or self.alpha_bytes:
             pixels = array('B')
-            pixels.fromfile(infile, self.bytespersample * self.colour_depth * self.width * self.height)
+            pixels.fromfile(infile, self.bytes_per_sample * self.color_depth * self.width * self.height)
             self.write_array(outfile, pixels)
         else:
             scanlines = self.file_scanlines(infile)
@@ -234,8 +238,8 @@ class PNG:
         # http://www.w3.org/TR/PNG/#11IHDR
 
         self.write_chunk(outfile, 'IHDR',
-                         struct.pack("!2I5B", self.width, self.height, self.bytespersample * 8,
-                                     self.colour_type, 0, 0, self.interlaced))
+                         struct.pack("!2I5B", self.width, self.height, self.bytes_per_sample * 8,
+                                     self.color_type, 0, 0, self.interlaced))
 
         # http://www.w3.org/TR/PNG/#11tRNS
         if self.transparent is not None:
@@ -362,6 +366,7 @@ class PNG:
                             row[i:row_len:self.psize] = pixels[offset+i:end_offset:skip]
                         yield row
 
+
 def read_pnm_header(infile, supported='P6'):
     """
     Read a PNM header, return width and height of the image in pixels.
@@ -381,6 +386,7 @@ def read_pnm_header(infile, supported='P6'):
         raise NotImplementedError('maxval %s not supported' % header[3])
     return int(header[1]), int(header[2])
 
+
 def pnmtopng(infile, outfile,
         interlace=None, transparent=None, background=None,
         gamma=None, compression=None):
@@ -397,15 +403,23 @@ def pnmtopng(infile, outfile,
     png.convert_file(infile, outfile)
 
 
-# FIXME: This needs to deal with deep colours and somewhere we need support for greyscale backgrounds etc.
+# FIXME: Somewhere we need support for greyscale backgrounds etc.
 def color_triple(color):
     """
     Convert a command line color value to a RGB triple of integers.
     """
+    if color.startswith('#') and len(color) == 4:
+        return (int(color[1], 16),
+                int(color[2], 16),
+                int(color[3], 16))
     if color.startswith('#') and len(color) == 7:
         return (int(color[1:3], 16),
                 int(color[3:5], 16),
                 int(color[5:7], 16))
+    elif color.startswith('#') and len(color) == 13:
+        return (int(color[1:5], 16),
+                int(color[5:9], 16),
+                int(color[9:13], 16))
 
 
 def _main():
@@ -512,7 +526,7 @@ def test_suite(options):
     def _test_radial_br(x, y):
         return _test_radial_tl(1-x, 1-y)
 
-    def _test_stripe(x,n):
+    def _test_stripe(x, n):
         return 1.0*(int(x*n) & 1)
 
     def _test_stripe_h_2(x, y):
@@ -539,7 +553,7 @@ def test_suite(options):
     def _test_stripe_rl_10(x, y):
         return _test_stripe(x-y, 10)
 
-    def _test_checker(x, y,n):
+    def _test_checker(x, y, n):
         return 1.0*((int(x*n) & 1) ^ (int(y*n) & 1))
 
     def _test_checker_8(x, y):
@@ -570,7 +584,7 @@ def test_suite(options):
         "CK8" : _test_checker_8,
         "CK15" : _test_checker_15,
         }
-    
+
 
     def _test_pattern(width, height, depth, pattern):
         a = array('B')
@@ -580,11 +594,11 @@ def test_suite(options):
         if depth == 1:
             for y in range(height):
                 for x in range(width):
-                    a.append(int(pfun(float(x)/fw,float(y)/fh) * 255))
+                    a.append(int(pfun(float(x)/fw, float(y)/fh) * 255))
         elif depth == 2:
             for y in range(height):
                 for x in range(width):
-                    v = int(pfun(float(x)/fw,float(y)/fh) * 65535)
+                    v = int(pfun(float(x)/fw, float(y)/fh) * 65535)
                     a.append(v >> 8)
                     a.append(v & 0xff)
         return a
@@ -600,7 +614,7 @@ def test_suite(options):
         i = interleave_planes(i, b, size, size, 2 * depth, depth)
         if alpha:
             i = interleave_planes(i, a, size, size, 3 * depth, depth)
-        p = PNG(size, size, i, has_alpha = (alpha is not None), bytespersample = depth, **file_options)
+        p = PNG(size, size, i, has_alpha = (alpha is not None), bytes_per_sample = depth, **file_options)
         p.write(out)
 
     # The body of test_suite() 
