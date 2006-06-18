@@ -40,8 +40,9 @@ PNG encoder in pure Python
 This is an implementation of a subset of the PNG specification at
 http://www.w3.org/TR/2003/REC-PNG-20031110 in pure Python.
 
-It currently supports encoding of PPM files or raw data with 24 bits
-per pixel (RGB) into PNG, with a number of options.
+It supports encoding of PPM files or raw data with 8/16/24/32/48/64
+bits per pixel (greyscale, RGB or RGBA) into PNG, with a number of
+options.
 
 This file can be used in two ways:
 
@@ -203,8 +204,8 @@ class Writer:
     def write_chunk(self, outfile, tag, data):
         """
         Write a PNG chunk to the output file, including length and checksum.
-        http://www.w3.org/TR/PNG/#5Chunk-layout
         """
+        # http://www.w3.org/TR/PNG/#5Chunk-layout
         outfile.write(struct.pack("!I", len(data)))
         outfile.write(tag)
         outfile.write(data)
@@ -214,7 +215,7 @@ class Writer:
 
     def write(self, outfile):
         """
-        Write out the pixel data in the PNG object as a PNG file
+        Write out the pixel data in the PNG object as a PNG file.
         """
         if not self.pixel_bytes:
             raise ValueError("No image data to write")
@@ -234,7 +235,8 @@ class Writer:
 
     def convert_file(self, infile, outfile):
         """
-        Convert the file infile contining raw pixel data into a PNG file outfile with the paramters set in the PNG object.
+        Convert the file infile contining raw pixel data into a PNG
+        file outfile with the paramters set in the PNG object.
         """
         if self.interlace or self.alpha_bytes:
             pixels = array('B')
@@ -245,6 +247,9 @@ class Writer:
             self.write_image(outfile, scanlines)
 
     def write_image(self, outfile, scanlines):
+        """
+        Write a PNG image to the output file.
+        """
         # http://www.w3.org/TR/PNG/#5PNG-file-signature
         outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
 
