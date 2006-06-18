@@ -279,19 +279,41 @@ class Writer:
         else:
             self.write(outfile, self.array_scanlines(pixels))
 
-    def convert_file(self, infile, outfile, interlace=False):
+    def convert_ppm(self, ppmfile, outfile, interlace=False):
         """
-        Convert the file infile contining raw pixel data into a PNG
-        file outfile with the paramters set in the PNG object.
+        Convert a PPM file containing raw pixel data into a PNG file
+        with the parameters set in the writer object.
         """
         if interlace:
             pixels = array('B')
-            pixels.fromfile(infile,
+            pixels.fromfile(ppmfile,
                             self.bytes_per_sample * self.color_depth *
                             self.width * self.height)
+            self.write(outfile, self.array_scanlines_interlace(pixels),
+                       interlaced=True)
+        else:
+            self.write(outfile, self.file_scanlines(ppmfile))
+
+    def convert_ppm_and_pgm(self, ppmfile, pgmfile, outfile, interlace=False):
+        """
+        Convert a PPM and PGM file containing raw pixel data into a
+        PNG outfile with the parameters set in the writer object.
+        """
+        pixels = array('B')
+        pixels.fromfile(ppmfile,
+                        self.bytes_per_sample * self.color_depth *
+                        self.width * self.height)
+        apixels = array('B')
+        apixels.fromfile(pgmfile,
+                         self.bytes_per_sample *
+                         self.width * self.height)
+        pixels = interleave_planes(pixels, apixels, self.width, self.height,
+                                   self.bytes_per_sample * self.color_depth,
+                                   self.bytes_per_sample)
+        if interlace:
             self.write(outfile, self.array_scanlines_interlace(pixels))
         else:
-            self.write(outfile, self.file_scanlines(infile))
+            self.write(outfile, self.array_scanlines(pixels))
 
     def file_scanlines(self, infile):
         """
@@ -357,22 +379,25 @@ class Writer:
         row_bytes = self.psize * self.width
         for xstart, ystart, xstep, ystep in adam7:
             for y in range(ystart, self.height, ystep):
-                if xstart < self.width:
-                    if xstep == 1:
-                        offset = y*row_bytes
-                        yield pixels[offset:offset+row_bytes]
-                    else:
-                        row = array('B')
-                        # Note that we want the ceiling of (self.width - xstart) / xtep
-                        row_len = self.psize * ((self.width - xstart + xstep - 1) / xstep)
-                        # There's no easy way to set the length of an array other than extend
-                        row.extend(pixels[0:row_len])
-                        offset = y*row_bytes + xstart* self.psize
-                        end_offset = (y+1) * row_bytes
-                        skip = self.psize * xstep
-                        for i in range(self.psize):
-                            row[i:row_len:self.psize] = pixels[offset+i:end_offset:skip]
-                        yield row
+                if xstart >= self.width:
+                    continue
+                if xstep == 1:
+                    offset = y * row_bytes
+                    yield pixels[offset:offset+row_bytes]
+                else:
+                    row = array('B')
+                    # Note we want the ceiling of (self.width - xstart) / xtep
+                    row_len = self.psize * (
+                        (self.width - xstart + xstep - 1) / xstep)
+                    # There's no easier way to set the length of an array
+                    row.extend(pixels[0:row_len])
+                    offset = y * row_bytes + xstart * self.psize
+                    end_offset = (y+1) * row_bytes
+                    skip = self.psize * xstep
+                    for i in range(self.psize):
+                        row[i:row_len:self.psize] = \
+                            pixels[offset+i:end_offset:skip]
+                    yield row
 
 
 class Reader:
@@ -710,22 +735,6 @@ def color_triple(color):
                 int(color[9:13], 16))
 
 
-def _pnmtopng(infile, outfile,
-        interlace=None, transparent=None, background=None,
-        gamma=None, compression=None):
-    """
-    Encode a PNM file into a PNG file.
-    """
-    width, height = read_pnm_header(infile)
-    png = PNG(width, height,
-              interlaced=interlace,
-              transparent=transparent,
-              background=background,
-              gamma=gamma,
-              compression=compression)
-    png.convert_file(infile, outfile)
-
-
 def _main():
     """
     Run the PNG encoder with options from the command line.
@@ -744,6 +753,9 @@ def _main():
     parser.add_option("-b", "--background",
                       action="store", type="string", metavar="color",
                       help="store the specified background color")
+    parser.add_option("-a", "--alpha",
+                      action="store", type="string", metavar="pgmfile",
+                      help="alpha channel transparency (RGBA)")
     parser.add_option("-g", "--gamma",
                       action="store", type="float", metavar="value",
                       help="store the specified gamma value")
@@ -771,8 +783,8 @@ def _main():
     parser.add_option("-S", "--test-size",
                       action="store", type="int", metavar="size",
                       help="linear size of the test image")
-
     (options, args) = parser.parse_args()
+
     # Convert options
     if options.transparent is not None:
         options.transparent = color_triple(options.transparent)
@@ -782,21 +794,32 @@ def _main():
     # Run regression tests
     if options.test:
         return test_suite(options)
+
     # Prepare input and output files
     if len(args) == 0:
-        infile = sys.stdin
+        ppmfile = sys.stdin
     elif len(args) == 1:
-        infile = open(args[0], 'rb')
+        ppmfile = open(args[0], 'rb')
     else:
         parser.error("more than one input file")
     outfile = sys.stdout
+
     # Encode PNM to PNG
-    pnmtopng(infile, outfile,
-             interlace=options.interlace,
-             transparent=options.transparent,
-             background=options.background,
-             gamma=options.gamma,
-             compression=options.compression)
+    width, height = read_pnm_header(ppmfile)
+    writer = Writer(width, height,
+                    transparent=options.transparent,
+                    background=options.background,
+                    gamma=options.gamma,
+                    compression=options.compression)
+    if options.alpha:
+        pgmfile = open(options.alpha, 'rb')
+        if (width, height) != read_pnm_header(pgmfile, 'P5'):
+            raise ValueError("alpha channel file has different size")
+        writer.convert_ppm_and_pgm(ppmfile, pgmfile, outfile,
+                           interlace=options.interlace)
+    else:
+        writer.convert_ppm(ppmfile, outfile,
+                           interlace=options.interlace)
 
 
 if __name__ == '__main__':
