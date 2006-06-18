@@ -495,6 +495,149 @@ def _main():
              compression=options.compression)
 
 
+class Reader:
+    """
+    PNG decoder in pure Python.
+    """
+
+    def read_chunk(infile):
+        """
+        Read a PNG chunk from the input file, return tag name and data.
+        """
+        # http://www.w3.org/TR/PNG/#5Chunk-layout
+        data_bytes, tag = struct.unpack('!I4s', infile.read(8))
+        data = infile.read(data_bytes)
+        checksum = struct.unpack('!i', infile.read(4))[0]
+        verify = zlib.crc32(tag)
+        verify = zlib.crc32(data, verify)
+        if checksum != verify:
+            raise ValueError('checksum error in %s chunk: %x != %x'
+                             % (tag, checksum, verify))
+        return tag, data
+
+    def _reconstruct_sub(pixels, offset, row_bytes, psize):
+        """Reverse sub filter."""
+        a_offset = offset
+        offset += psize
+        for index in range(psize, row_bytes):
+            x = pixels[offset]
+            a = pixels[a_offset]
+            pixels[offset] = (x + a) & 0xff
+            offset += 1
+            a_offset += 1
+
+    def _reconstruct_up(pixels, offset, row_bytes, psize):
+        """Reverse up filter."""
+        b_offset = offset - row_bytes
+        for index in range(row_bytes):
+            x = pixels[offset]
+            b = pixels[b_offset]
+            pixels[offset] = (x + b) & 0xff
+            offset += 1
+            b_offset += 1
+
+    def _reconstruct_average(pixels, offset, row_bytes, psize):
+        """Reverse average filter."""
+        a_offset = offset - psize
+        b_offset = offset - row_bytes
+        for index in range(row_bytes):
+            x = pixels[offset]
+            if index < psize:
+                a = 0
+            else:
+                a = pixels[offset-psize]
+            if b_offset < 0:
+                b = 0
+            else:
+                b = pixels[b_offset]
+            pixels[offset] = (x + (a + b) / 2) & 0xff
+            offset += 1
+            a_offset += 1
+            b_offset += 1
+
+    def _reconstruct_paeth(pixels, offset, row_bytes, psize):
+        """Reverse Paeth filter."""
+        a_offset = offset - psize
+        b_offset = offset - row_bytes
+        c_offset = b_offset - psize
+        for index in range(row_bytes):
+            x = pixels[offset]
+            if index < psize:
+                a = c = 0
+                # if offset_b < 0:
+                #     b = 0
+                # else:
+                b = pixels[b_offset]
+            else:
+                a = pixels[a_offset]
+                # if offset_b < 0:
+                #     b = c = 0
+                # else:
+                b = pixels[b_offset]
+                c = pixels[c_offset]
+            p = a + b - c
+            pa = abs(p - a)
+            pb = abs(p - b)
+            pc = abs(p - c)
+            if pa <= pb and pa <= pc:
+                pr = a
+            elif pb <= pc:
+                pr = b
+            else:
+                pr = c
+            pixels[offset] = (x + pr) & 0xff
+            offset += 1
+            a_offset += 1
+            b_offset += 1
+            c_offset += 1
+
+    def read(infile):
+        """
+        Read a simple PNG file, return width, height, pixels.
+
+        This function is a very early prototype with limited flexibility
+        and excessive use of memory.
+        """
+        signature = infile.read(8)
+        assert signature == struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10)
+        compressed = []
+        while True:
+            tag, data = read_chunk(infile)
+            # print tag, len(data)
+            if tag == 'IHDR': # http://www.w3.org/TR/PNG/#11IHDR
+                (width, height, bits_per_sample, color_type,
+                 compression_method, filter_method,
+                 interlaced) = struct.unpack("!2I5B", data)
+                assert bits_per_sample == 8
+                assert color_type == 2
+                assert compression_method == 0
+                assert filter_method == 0
+                assert interlaced == 0
+            if tag == 'IDAT': # http://www.w3.org/TR/PNG/#11IDAT
+                compressed.append(data)
+            if tag == 'IEND': # http://www.w3.org/TR/PNG/#11IEND
+                break
+        scanlines = zlib.decompress(''.join(compressed))
+        pixels = array('B')
+        offset = 0
+        row_bytes = 3*width
+        for y in range(height):
+            filter_type = ord(scanlines[offset])
+            # print >> sys.stderr, y, filter_type
+            offset += 1
+            pixels.fromstring(scanlines[offset:offset+row_bytes])
+            if filter_type == 1:
+                _reconstruct_sub(pixels, y*row_bytes, row_bytes, 3)
+            elif filter_type == 2:
+                _reconstruct_up(pixels, y*row_bytes, row_bytes, 3)
+            elif filter_type == 3:
+                _reconstruct_average(pixels, y*row_bytes, row_bytes, 3)
+            elif filter_type == 4:
+                _reconstruct_paeth(pixels, y*row_bytes, row_bytes, 3)
+            offset += row_bytes
+        return width, height, pixels
+
+
 def test_suite(options):
     """
     Run regression tests and produce PNG files in current directory.
