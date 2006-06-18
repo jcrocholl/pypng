@@ -132,7 +132,7 @@ class Writer:
 
         if has_alpha and transparent is not None:
             raise ValueError(
-                "Transparent colour not allowed with alpha channel")
+                "Transparent color not allowed with alpha channel")
 
         if bytes_per_sample < 1 or bytes_per_sample > 2:
             raise ValueError("Bytes per sample must be 1 or 2")
@@ -141,27 +141,27 @@ class Writer:
             if greyscale:
                 if type(transparent) is not int:
                     raise ValueError(
-                        "Transparent colour for greyscale must be integer")
+                        "Transparent color for greyscale must be integer")
             else:
                 if not (len(transparent) == 3 and
                         type(transparent[0]) is int and
                         type(transparent[1]) is int and
                         type(transparent[2]) is int):
                     raise ValueError(
-                        "Transparent colour must be a triple of integers")
+                        "Transparent color must be a triple of integers")
 
         if background is not None:
             if greyscale:
                 if type(background) is not int:
                     raise ValueError(
-                        "Background colour for greyscale must be integer")
+                        "Background color for greyscale must be integer")
             else:
                 if not (len(background) == 3 and
                         type(background[0]) is int and
                         type(background[1]) is int and
                         type(background[2]) is int):
                     raise ValueError(
-                        "Background colour must be a triple of integers")
+                        "Background color must be a triple of integers")
 
         self.width = width
         self.height = height
