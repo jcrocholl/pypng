@@ -448,16 +448,16 @@ def _main():
     parser.add_option("--test", default=False, action="store_true",
                       help="run regression tests")
     parser.add_option("-R", "--test-red",
-                      action="store", type="string", 
+                      action="store", type="string",
                       help="test patern for the red image layer")
     parser.add_option("-G", "--test-green",
-                      action="store", type="string", 
+                      action="store", type="string",
                       help="test patern for the green image layer")
     parser.add_option("-B", "--test-blue",
-                      action="store", type="string", 
+                      action="store", type="string",
                       help="test patern for the blue image layer")
     parser.add_option("-A", "--test-alpha",
-                      action="store", type="string", 
+                      action="store", type="string",
                       help="test patern for the alpha image layer")
     parser.add_option("-D", "--test-deep",
                       default = False, action="store_true",
@@ -617,7 +617,7 @@ def test_suite(options):
         p = PNG(size, size, i, has_alpha = (alpha is not None), bytes_per_sample = depth, **file_options)
         p.write(out)
 
-    # The body of test_suite() 
+    # The body of test_suite()
     kw = {}
     if options.test_red:
         kw["red"] = options.test_red
