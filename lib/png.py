@@ -94,7 +94,7 @@ def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
 
 class PNG:
     def __init__(self, width, height, pixel_bytes=None, alpha_bytes=None,
-                 interlaced=False, trans=None,
+                 interlaced=False, transparent=None,
                  background=None, gamma=None, compression=None,
                  chunk_limit=2**20, greyscale=False, has_alpha=False,
                  bytes_per_sample=1):
@@ -127,17 +127,17 @@ class PNG:
             raise ValueError("Width and height must be greater than zero")
         if alpha_bytes and has_alpha:
             raise ValueError("Extra alpha-channel data must not be supplied if pixels already have alpha data")
-        if (alpha_bytes or has_alpha) and trans is not None:
+        if (alpha_bytes or has_alpha) and transparent is not None:
             raise ValueError("Transparent color not allowed with alpha channel")
         if bytes_per_sample < 1 or bytes_per_sample > 2:
             raise ValueError("Bytes per sample must be 1 or 2")
 
-        if trans is not None:
+        if transparent is not None:
             if greyscale:
-                if not (len(trans) == 1 and type(trans[0]) is int):
+                if not (len(transparent) == 1 and type(transparent[0]) is int):
                     raise ValueError("Transparent greyscale must be a 1-tuple of an integer")
             else:
-                if not (len(trans) == 3 and type(trans[0]) is int and type(trans[1]) is int and type(trans[2]) is int):
+                if not (len(transparent) == 3 and type(transparent[0]) is int and type(transparent[1]) is int and type(transparent[2]) is int):
                     raise ValueError("Transparent color must be a triple of integers")
 
         if background is not None:
@@ -160,7 +160,7 @@ class PNG:
         self.width = width
         self.height = height
         self.interlaced = interlaced
-        self.transparent = trans
+        self.transparent = transparent
         self.background = background
         self.gamma = gamma
         self.compression = compression
@@ -633,7 +633,7 @@ def test_suite(options):
         kw["size"] = options.test_size
 
     kw["file_options"] = dict(interlaced=options.interlace,
-                              trans=options.transparent,
+                              transparent=options.transparent,
                               background=options.background,
                               gamma=options.gamma,
                               compression=options.compression)
