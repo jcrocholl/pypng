@@ -99,7 +99,6 @@ class Writer:
     """
 
     def __init__(self, width, height,
-                 interlaced=False,
                  transparent=None,
                  background=None,
                  gamma=None,
@@ -113,7 +112,6 @@ class Writer:
 
         Arguments:
         width, height - size of the image in pixels
-        interlaced - scanlines are interlaced with Adam7
         transparent - create a tRNS chunk
         background - create a bKGD chunk
         gamma - create a gAMA chunk
@@ -122,12 +120,6 @@ class Writer:
         bytes_per_sample - 8-bit or 16-bit input data
         compression - zlib compression level (1-9)
         chunk_limit - write multiple IDAT chunks to preserve memory
-
-        If the interlaced parameter is set to True, the scanlines are
-        expected to be interlaced with the Adam7 scheme. This is good
-        for incremental display over a slow network connection, but it
-        increases encoding time and memory use by an order of
-        magnitude and output file size by a factor of 1.2 or so.
 
         If specified, the transparent and background parameters must
         be a tuple with three integer values for red, green, blue.
@@ -183,10 +175,9 @@ class Writer:
         self.compression = compression
         self.chunk_limit = chunk_limit
 
-    def set_type_and_psize(self, with_alpha):
         if self.greyscale:
             self.color_depth = 1
-            if with_alpha:
+            if self.has_alpha:
                 self.color_type = 4
                 self.psize = self.bytes_per_sample * 2
             else:
@@ -194,7 +185,7 @@ class Writer:
                 self.psize = self.bytes_per_sample
         else:
             self.color_depth = 3
-            if with_alpha:
+            if self.has_alpha:
                 self.color_type = 6
                 self.psize = self.bytes_per_sample * 4
             else:
@@ -213,40 +204,7 @@ class Writer:
         checksum = zlib.crc32(data, checksum)
         outfile.write(struct.pack("!I", checksum))
 
-    def write(self, outfile):
-        """
-        Write out the pixel data in the PNG object as a PNG file.
-        """
-        if not self.pixel_bytes:
-            raise ValueError("No image data to write")
-        self.write_array(outfile, self.pixel_bytes)
-
-    def write_array(self, outfile, pdata):
-        with_alpha = self.has_alpha or self.alpha_bytes
-        self.set_type_and_psize(with_alpha)
-        if self.alpha_bytes:
-            ipsize = self.bytes_per_sample * self.color_depth
-            pdata = interleave_planes(pdata, self.alpha_bytes, self.width, self.height, ipsize, self.bytes_per_sample)
-        if self.interlaced:
-            scanlines = self.array_scanlines_interlace(pdata)
-        else:
-            scanlines = self.array_scanlines(pdata)
-        self.write_image(outfile, scanlines)
-
-    def convert_file(self, infile, outfile):
-        """
-        Convert the file infile contining raw pixel data into a PNG
-        file outfile with the paramters set in the PNG object.
-        """
-        if self.interlace or self.alpha_bytes:
-            pixels = array('B')
-            pixels.fromfile(infile, self.bytes_per_sample * self.color_depth * self.width * self.height)
-            self.write_array(outfile, pixels)
-        else:
-            scanlines = self.file_scanlines(infile)
-            self.write_image(outfile, scanlines)
-
-    def write_image(self, outfile, scanlines):
+    def write(self, outfile, scanlines):
         """
         Write a PNG image to the output file.
         """
@@ -305,6 +263,29 @@ class Writer:
 
         # http://www.w3.org/TR/PNG/#11IEND
         self.write_chunk(outfile, 'IEND', '')
+
+    def write_array(self, outfile, pixels, interlace=False):
+        """
+        Encode a pixel array to PNG and write output file.
+        """
+        if interlace:
+            self.write(outfile, self.array_scanlines_interlace(pixels))
+        else:
+            self.write(outfile, self.array_scanlines(pixels))
+
+    def convert_file(self, infile, outfile, interlace=False):
+        """
+        Convert the file infile contining raw pixel data into a PNG
+        file outfile with the paramters set in the PNG object.
+        """
+        if interlace:
+            pixels = array('B')
+            pixels.fromfile(infile,
+                            self.bytes_per_sample * self.color_depth *
+                            self.width * self.height)
+            self.write(outfile, self.array_scanlines_interlace(pixels))
+        else:
+            self.write(outfile, self.file_scanlines(infile))
 
     def file_scanlines(self, infile):
         """
@@ -664,4 +645,3 @@ def test_suite(options):
 
 if __name__ == '__main__':
     _main()
-
