@@ -274,7 +274,8 @@ class Writer:
         Encode a pixel array to PNG and write output file.
         """
         if interlace:
-            self.write(outfile, self.array_scanlines_interlace(pixels))
+            self.write(outfile, self.array_scanlines_interlace(pixels),
+                       interlaced=True)
         else:
             self.write(outfile, self.array_scanlines(pixels))
 
