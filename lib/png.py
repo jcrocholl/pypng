@@ -92,70 +92,83 @@ def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
     return out
 
 
-class PNG:
-    def __init__(self, width, height, pixel_bytes=None, alpha_bytes=None,
-                 interlaced=False, transparent=None,
-                 background=None, gamma=None, compression=None,
-                 chunk_limit=2**20, greyscale=False, has_alpha=False,
-                 bytes_per_sample=1):
+class Writer:
+    """
+    PNG encoder in pure Python.
+    """
+
+    def __init__(self, width, height,
+                 interlaced=False,
+                 transparent=None,
+                 background=None,
+                 gamma=None,
+                 greyscale=False,
+                 has_alpha=False,
+                 bytes_per_sample=1,
+                 compression=None,
+                 chunk_limit=2**20):
         """
-        Create a PNG image from RGB data.
+        Create a PNG encoder object.
 
         Arguments:
-        outfile - something with a write() method
-        scanlines - iterator that returns scanlines from top to bottom
         width, height - size of the image in pixels
         interlaced - scanlines are interlaced with Adam7
         transparent - create a tRNS chunk
-        compression - zlib compression level (0-9)
-
-        Each scanline must be an array of bytes of length 3*width,
-        containing the red, green, blue values for each pixel.
+        background - create a bKGD chunk
+        gamma - create a gAMA chunk
+        greyscale - input data is greyscale, not RGB
+        has_alpha - input data has alpha channel
+        bytes_per_sample - 8-bit or 16-bit input data
+        compression - zlib compression level (1-9)
+        chunk_limit - write multiple IDAT chunks to preserve memory
 
         If the interlaced parameter is set to True, the scanlines are
-        expected to be interlaced with the Adam7 scheme. This is good for
-        incremental display over a slow network connection, but it
-        increases encoding time and memory use by an order of magnitude
-        and output file size by a factor of 1.2 or so.
+        expected to be interlaced with the Adam7 scheme. This is good
+        for incremental display over a slow network connection, but it
+        increases encoding time and memory use by an order of
+        magnitude and output file size by a factor of 1.2 or so.
 
-        The transparent parameter can be used to mark a color as
-        transparent in the resulting image file. If specified, it must be
-        a tuple with three integer values for red, green, blue.
+        If specified, the transparent and background parameters must
+        be a tuple with three integer values for red, green, blue.
+
+        If specified, the gamma parameter must be a float value.
+
         """
-
         if width <= 0 or height <= 0:
             raise ValueError("Width and height must be greater than zero")
-        if alpha_bytes and has_alpha:
-            raise ValueError("Extra alpha-channel data must not be supplied if pixels already have alpha data")
-        if (alpha_bytes or has_alpha) and transparent is not None:
-            raise ValueError("Transparent color not allowed with alpha channel")
-        if bytes_per_sample < 1 or bytes_per_sample > 2:
+
+        if has_alpha and transparent is not None:
+            raise ValueError(
+                "Transparent colour not allowed with alpha channel")
+
+        if bytespersample < 1 or bytespersample > 2:
             raise ValueError("Bytes per sample must be 1 or 2")
 
         if transparent is not None:
             if greyscale:
-                if not (len(transparent) == 1 and type(transparent[0]) is int):
-                    raise ValueError("Transparent greyscale must be a 1-tuple of an integer")
+                if type(transparent) is not int:
+                    raise ValueError(
+                        "Transparent colour for greyscale must be integer")
             else:
-                if not (len(transparent) == 3 and type(transparent[0]) is int and type(transparent[1]) is int and type(transparent[2]) is int):
-                    raise ValueError("Transparent color must be a triple of integers")
+                if not (len(transparent) == 3 and
+                        type(transparent[0]) is int and
+                        type(transparent[1]) is int and
+                        type(transparent[2]) is int):
+                    raise ValueError(
+                        "Transparent colour must be a triple of integers")
 
         if background is not None:
             if greyscale:
-                if not (len(background) == 1 and type(background[0]) is int):
-                    raise ValueError("Background greyscale must be a 1-tuple of an integer")
+                if type(background) is not int:
+                    raise ValueError(
+                        "Background colour for greyscale must be integer")
             else:
-                if not (len(background) == 3 and type(background[0]) is int and
-                        type(background[1]) is int and type(background[2]) is int):
-                    raise ValueError("Background color must be a triple of integers")
-
-        if interlaced:
-            self.interlaced = 1
-        else:
-            self.interlaced = 0
-
-        self.pixel_bytes = pixel_bytes
-        self.alpha_bytes = alpha_bytes
+                if not (len(background) == 3 and
+                        type(background[0]) is int and
+                        type(background[1]) is int and
+                        type(background[2]) is int):
+                    raise ValueError(
+                        "Background colour must be a triple of integers")
 
         self.width = width
         self.height = height
@@ -163,11 +176,11 @@ class PNG:
         self.transparent = transparent
         self.background = background
         self.gamma = gamma
-        self.compression = compression
-        self.chunk_limit = chunk_limit
         self.greyscale = greyscale
         self.has_alpha = has_alpha
         self.bytes_per_sample = bytes_per_sample
+        self.compression = compression
+        self.chunk_limit = chunk_limit
 
     def set_type_and_psize(self, with_alpha):
         if self.greyscale:
@@ -236,7 +249,10 @@ class PNG:
         outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
 
         # http://www.w3.org/TR/PNG/#11IHDR
-
+        if self.interlaced:
+            self.interlaced = 1
+        else:
+            self.interlaced = 0
         self.write_chunk(outfile, 'IHDR',
                          struct.pack("!2I5B", self.width, self.height, self.bytes_per_sample * 8,
                                      self.color_type, 0, 0, self.interlaced))
