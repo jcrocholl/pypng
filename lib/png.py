@@ -438,39 +438,41 @@ def _main():
     version = '%prog ' + __revision__.strip('$').replace('Rev: ', 'r')
     parser = OptionParser(version=version)
     parser.set_usage("%prog [options] [pnmfile]")
-    parser.add_option("--interlace", default=False, action="store_true",
+    parser.add_option("-i", "--interlace",
+                      default=False, action="store_true",
                       help="create an interlaced PNG file (Adam7)")
-    parser.add_option("--transparent",
+    parser.add_option("-t", "--transparent",
                       action="store", type="string", metavar="color",
                       help="mark the specified color as transparent")
-    parser.add_option("--background",
+    parser.add_option("-b", "--background",
                       action="store", type="string", metavar="color",
                       help="store the specified background color")
-    parser.add_option("--gamma",
+    parser.add_option("-g", "--gamma",
                       action="store", type="float", metavar="value",
                       help="store the specified gamma value")
-    parser.add_option("--compression",
+    parser.add_option("-c", "--compression",
                       action="store", type="int", metavar="level",
                       help="zlib compression level (0-9)")
-    parser.add_option("--test", default=False, action="store_true",
+    parser.add_option("-T", "--test",
+                      default=False, action="store_true",
                       help="run regression tests")
     parser.add_option("-R", "--test-red",
-                      action="store", type="string",
-                      help="test patern for the red image layer")
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the red image layer")
     parser.add_option("-G", "--test-green",
-                      action="store", type="string",
-                      help="test patern for the green image layer")
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the green image layer")
     parser.add_option("-B", "--test-blue",
-                      action="store", type="string",
-                      help="test patern for the blue image layer")
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the blue image layer")
     parser.add_option("-A", "--test-alpha",
-                      action="store", type="string",
-                      help="test patern for the alpha image layer")
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the alpha image layer")
     parser.add_option("-D", "--test-deep",
-                      default = False, action="store_true",
-                      help="make test patern 16 bit per layer deep")
+                      default=False, action="store_true",
+                      help="make test pattern 16 bit per layer deep")
     parser.add_option("-S", "--test-size",
-                      action="store", type="int",
+                      action="store", type="int", metavar="size",
                       help="linear size of the test image")
 
     (options, args) = parser.parse_args()
@@ -788,6 +790,7 @@ def test_suite(options):
                     transparent=options.transparent,
                     background=options.background,
                     gamma=options.gamma,
+                    has_alpha=options.test_alpha,
                     compression=options.compression)
     writer.write_array(sys.stdout, pixels,
                        interlace=options.interlace)

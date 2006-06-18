@@ -48,7 +48,8 @@ pylint :
 	pylint -iy --reports=no --good-names=x,y,r,g,b,a,i lib/png.py
 
 testsuite :
-	python lib/png.py --test > test/256.png
+	python lib/png.py --test > test/test-rgb-256.png
+	python lib/png.py --test -A GLR > test/test-rgba-256.png
 
 README :
 	pydoc lib/png.py > $@
