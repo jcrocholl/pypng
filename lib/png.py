@@ -311,7 +311,8 @@ class Writer:
                                    self.bytes_per_sample * self.color_depth,
                                    self.bytes_per_sample)
         if interlace:
-            self.write(outfile, self.array_scanlines_interlace(pixels))
+            self.write(outfile, self.array_scanlines_interlace(pixels),
+                       interlaced=True)
         else:
             self.write(outfile, self.array_scanlines(pixels))
 
