@@ -809,9 +809,10 @@ def _main():
     writer = Writer(width, height,
                     transparent=options.transparent,
                     background=options.background,
+                    has_alpha=options.alpha is not None,
                     gamma=options.gamma,
                     compression=options.compression)
-    if options.alpha:
+    if options.alpha is not None:
         pgmfile = open(options.alpha, 'rb')
         if (width, height) != read_pnm_header(pgmfile, 'P5'):
             raise ValueError("alpha channel file has different size")
