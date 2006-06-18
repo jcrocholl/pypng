@@ -519,100 +519,101 @@ class Reader:
 
 def test_suite(options):
     """
-    Run regression tests and produce PNG files in current directory.
+    Run regression test and write PNG file to stdout.
     """
-# Below is a big stack of test image generators
 
-    def _test_gradient_horizontal_lr(x, y):
+    # Below is a big stack of test image generators
+
+    def test_gradient_horizontal_lr(x, y):
         return x
 
-    def _test_gradient_horizontal_rl(x, y):
+    def test_gradient_horizontal_rl(x, y):
         return 1-x
 
-    def _test_gradient_vertical_tb(x, y):
+    def test_gradient_vertical_tb(x, y):
         return y
 
-    def _test_gradient_vertical_bt(x, y):
+    def test_gradient_vertical_bt(x, y):
         return 1-y
 
-    def _test_radial_tl(x, y):
+    def test_radial_tl(x, y):
         return max(1-math.sqrt(x*x+y*y), 0.0)
 
-    def _test_radial_center(x, y):
-        return _test_radial_tl(x-0.5, y-0.5)
+    def test_radial_center(x, y):
+        return test_radial_tl(x-0.5, y-0.5)
 
-    def _test_radial_tr(x, y):
-        return _test_radial_tl(1-x, y)
+    def test_radial_tr(x, y):
+        return test_radial_tl(1-x, y)
 
-    def _test_radial_bl(x, y):
-        return _test_radial_tl(x, 1-y)
+    def test_radial_bl(x, y):
+        return test_radial_tl(x, 1-y)
 
-    def _test_radial_br(x, y):
-        return _test_radial_tl(1-x, 1-y)
+    def test_radial_br(x, y):
+        return test_radial_tl(1-x, 1-y)
 
-    def _test_stripe(x, n):
+    def test_stripe(x, n):
         return 1.0*(int(x*n) & 1)
 
-    def _test_stripe_h_2(x, y):
-        return _test_stripe(x, 2)
+    def test_stripe_h_2(x, y):
+        return test_stripe(x, 2)
 
-    def _test_stripe_h_4(x, y):
-        return _test_stripe(x, 4)
+    def test_stripe_h_4(x, y):
+        return test_stripe(x, 4)
 
-    def _test_stripe_h_10(x, y):
-        return _test_stripe(x, 10)
+    def test_stripe_h_10(x, y):
+        return test_stripe(x, 10)
 
-    def _test_stripe_v_2(x, y):
-        return _test_stripe(y, 2)
+    def test_stripe_v_2(x, y):
+        return test_stripe(y, 2)
 
-    def _test_stripe_v_4(x, y):
-        return _test_stripe(y, 4)
+    def test_stripe_v_4(x, y):
+        return test_stripe(y, 4)
 
-    def _test_stripe_v_10(x, y):
-        return _test_stripe(y, 10)
+    def test_stripe_v_10(x, y):
+        return test_stripe(y, 10)
 
-    def _test_stripe_lr_10(x, y):
-        return _test_stripe(x+y, 10)
+    def test_stripe_lr_10(x, y):
+        return test_stripe(x+y, 10)
 
-    def _test_stripe_rl_10(x, y):
-        return _test_stripe(x-y, 10)
+    def test_stripe_rl_10(x, y):
+        return test_stripe(x-y, 10)
 
-    def _test_checker(x, y, n):
+    def test_checker(x, y, n):
         return 1.0*((int(x*n) & 1) ^ (int(y*n) & 1))
 
-    def _test_checker_8(x, y):
-        return _test_checker(x, y, 8)
+    def test_checker_8(x, y):
+        return test_checker(x, y, 8)
 
-    def _test_checker_15(x, y):
-        return _test_checker(x, y, 15)
+    def test_checker_15(x, y):
+        return test_checker(x, y, 15)
 
-    _test_patterns = {
-        "GLR" : _test_gradient_horizontal_lr,
-        "GRL" : _test_gradient_horizontal_rl,
-        "GTB" : _test_gradient_vertical_tb,
-        "GBT" : _test_gradient_vertical_bt,
-        "RTL" : _test_radial_tl,
-        "RTR" : _test_radial_tr,
-        "RBL" : _test_radial_bl,
-        "RBR" : _test_radial_br,
-        "RCTR" : _test_radial_center,
-        "HS2" : _test_stripe_h_2,
-        "HS4" : _test_stripe_h_4,
-        "HS10" : _test_stripe_h_10,
-        "VS2" : _test_stripe_v_2,
-        "VS4" : _test_stripe_v_4,
-        "VS10" : _test_stripe_v_10,
-        "LRS" : _test_stripe_lr_10,
-        "RLS" : _test_stripe_rl_10,
-        "CK8" : _test_checker_8,
-        "CK15" : _test_checker_15,
+    test_patterns = {
+        "GLR" : test_gradient_horizontal_lr,
+        "GRL" : test_gradient_horizontal_rl,
+        "GTB" : test_gradient_vertical_tb,
+        "GBT" : test_gradient_vertical_bt,
+        "RTL" : test_radial_tl,
+        "RTR" : test_radial_tr,
+        "RBL" : test_radial_bl,
+        "RBR" : test_radial_br,
+        "RCTR" : test_radial_center,
+        "HS2" : test_stripe_h_2,
+        "HS4" : test_stripe_h_4,
+        "HS10" : test_stripe_h_10,
+        "VS2" : test_stripe_v_2,
+        "VS4" : test_stripe_v_4,
+        "VS10" : test_stripe_v_10,
+        "LRS" : test_stripe_lr_10,
+        "RLS" : test_stripe_rl_10,
+        "CK8" : test_checker_8,
+        "CK15" : test_checker_15,
         }
 
     def test_pattern(width, height, depth, pattern):
         a = array('B')
         fw = float(width)
         fh = float(height)
-        pfun = _test_patterns[pattern]
+        pfun = test_patterns[pattern]
         if depth == 1:
             for y in range(height):
                 for x in range(width):
@@ -689,22 +690,6 @@ def read_pnm_header(infile, supported='P6'):
     return int(header[1]), int(header[2])
 
 
-def pnmtopng(infile, outfile,
-        interlace=None, transparent=None, background=None,
-        gamma=None, compression=None):
-    """
-    Encode a PNM file into a PNG file.
-    """
-    width, height = read_pnm_header(infile)
-    png = PNG(width, height,
-              interlaced=interlace,
-              transparent=transparent,
-              background=background,
-              gamma=gamma,
-              compression=compression)
-    png.convert_file(infile, outfile)
-
-
 # FIXME: Somewhere we need support for greyscale backgrounds etc.
 def color_triple(color):
     """
@@ -722,6 +707,22 @@ def color_triple(color):
         return (int(color[1:5], 16),
                 int(color[5:9], 16),
                 int(color[9:13], 16))
+
+
+def _pnmtopng(infile, outfile,
+        interlace=None, transparent=None, background=None,
+        gamma=None, compression=None):
+    """
+    Encode a PNM file into a PNG file.
+    """
+    width, height = read_pnm_header(infile)
+    png = PNG(width, height,
+              interlaced=interlace,
+              transparent=transparent,
+              background=background,
+              gamma=gamma,
+              compression=compression)
+    png.convert_file(infile, outfile)
 
 
 def _main():
