@@ -26,66 +26,94 @@ DESCRIPTION
        >>> import png
        >>> help(png)
 
+CLASSES
+    Reader
+    Writer
+    
+    class Reader
+     |  PNG decoder in pure Python.
+     |  
+     |  Methods defined here:
+     |  
+     |  read(infile)
+     |      Read a simple PNG file, return width, height, pixels.
+     |      
+     |      This function is a very early prototype with limited flexibility
+     |      and excessive use of memory.
+     |  
+     |  read_chunk(infile)
+     |      Read a PNG chunk from the input file, return tag name and data.
+    
+    class Writer
+     |  PNG encoder in pure Python.
+     |  
+     |  Methods defined here:
+     |  
+     |  __init__(self, width, height, transparent=None, background=None, gamma=None, greyscale=False, has_alpha=False, bytes_per_sample=1, compression=None, chunk_limit=1048576)
+     |      Create a PNG encoder object.
+     |      
+     |      Arguments:
+     |      width, height - size of the image in pixels
+     |      transparent - create a tRNS chunk
+     |      background - create a bKGD chunk
+     |      gamma - create a gAMA chunk
+     |      greyscale - input data is greyscale, not RGB
+     |      has_alpha - input data has alpha channel
+     |      bytes_per_sample - 8-bit or 16-bit input data
+     |      compression - zlib compression level (1-9)
+     |      chunk_limit - write multiple IDAT chunks to preserve memory
+     |      
+     |      If specified, the transparent and background parameters must
+     |      be a tuple with three integer values for red, green, blue.
+     |      
+     |      If specified, the gamma parameter must be a float value.
+     |  
+     |  array_scanlines(self, pixels)
+     |      Generator for scanlines from an array.
+     |  
+     |  array_scanlines_interlace(self, pixels)
+     |      Generator for interlaced scanlines from an array.
+     |      http://www.w3.org/TR/PNG/#8InterlaceMethods
+     |  
+     |  convert_file(self, infile, outfile, interlace=False)
+     |      Convert the file infile contining raw pixel data into a PNG
+     |      file outfile with the paramters set in the PNG object.
+     |  
+     |  file_scanlines(self, infile)
+     |      Generator for scanlines from an input file.
+     |  
+     |  old_array_scanlines_interlace(self, pixels)
+     |      Generator for interlaced scanlines from an array.
+     |      http://www.w3.org/TR/PNG/#8InterlaceMethods
+     |  
+     |  write(self, outfile, scanlines, interlaced=False)
+     |      Write a PNG image to the output file.
+     |  
+     |  write_array(self, outfile, pixels, interlace=False)
+     |      Encode a pixel array to PNG and write output file.
+     |  
+     |  write_chunk(self, outfile, tag, data)
+     |      Write a PNG chunk to the output file, including length and checksum.
+
 FUNCTIONS
-    array_scanlines(pixels, width, height, psize)
-        Generator for scanlines from an array.
-    
-    array_scanlines_interlace(pixels, width, height, psize)
-        Generator for interlaced scanlines from an array.
-        http://www.w3.org/TR/PNG/#8InterlaceMethods
-    
     color_triple(color)
         Convert a command line color value to a RGB triple of integers.
     
-    file_scanlines(infile, width, height, psize)
-        Generator for scanlines from an input file.
-    
     interleave_planes(ipixels, apixels, width, height, ipsize, apsize)
         Interleave color planes, e.g. RGB + A = RGBA.
+        
+        Return an array of pixels consisting of the ipsize bytes of data
+        from each pixel in ipixels followed by the apsize bytes of data
+        from each pixel in apixels, for an image of size width x height.
     
-    pnmtopng(infile, outfile, interlace=None, transparent=None, background=None, alpha=None, gamma=None, compression=None)
+    pnmtopng(infile, outfile, interlace=None, transparent=None, background=None, gamma=None, compression=None)
         Encode a PNM file into a PNG file.
     
     read_pnm_header(infile, supported='P6')
         Read a PNM header, return width and height of the image in pixels.
     
-    test_suite()
+    test_suite(options)
         Run regression tests and produce PNG files in current directory.
-    
-    write(outfile, scanlines, width, height, interlaced=False, transparent=None, background=None, gamma=None, greyscale=False, has_alpha=False, bytes_per_sample=1, compression=None, chunk_limit=1048576)
-        Create a PNG image from RGB data.
-        
-        Arguments:
-        outfile - something with a write() method
-        scanlines - iterator that returns scanlines from top to bottom
-        width, height - size of the image in pixels
-        interlaced - scanlines are interlaced with Adam7
-        transparent - create a tRNS chunk
-        background - create a bKGD chunk
-        gamma - create a gAMA chunk
-        greyscale - input data is greyscale, not RGB
-        has_alpha - input data has alpha channel
-        bytes_per_sample - 8-bit or 16-bit input data
-        compression - zlib compression level (1-9)
-        chunk_limit - write multiple IDAT chunks to preserve memory
-        
-        Each scanline must be an array of bytes containing the red, green,
-        blue (or gray, and maybe alpha) values for each pixel.
-        
-        If the interlaced parameter is set to True, the scanlines are
-        expected to be interlaced with the Adam7 scheme. This is good for
-        incremental display over a slow network connection, but it
-        increases encoding time and memory use by an order of magnitude
-        and output file size by a factor of 1.2 or so.
-        
-        If specified, the transparent and background parameters must be a
-        tuple with three integer values for red, green, blue.
-        
-        If specified, the gamma parameter must be a float value.
-    
-    write_chunk(outfile, tag, data)
-        Write a PNG chunk to the output file, including length and checksum.
-        http://www.w3.org/TR/PNG/#5Chunk-layout
 
 DATA
     __author__ = '$Author$'

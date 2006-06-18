@@ -374,134 +374,6 @@ class Writer:
                         yield row
 
 
-def read_pnm_header(infile, supported='P6'):
-    """
-    Read a PNM header, return width and height of the image in pixels.
-    """
-    header = []
-    while len(header) < 4:
-        line = infile.readline()
-        sharp = line.find('#')
-        if sharp > -1:
-            line = line[:sharp]
-        header.extend(line.split())
-        if len(header) == 3 and header[0] == 'P4':
-            break # PBM doesn't have maxval
-    if header[0] not in supported:
-        raise NotImplementedError('file format %s not supported' % header[0])
-    if header[0] != 'P4' and header[3] != '255':
-        raise NotImplementedError('maxval %s not supported' % header[3])
-    return int(header[1]), int(header[2])
-
-
-def pnmtopng(infile, outfile,
-        interlace=None, transparent=None, background=None,
-        gamma=None, compression=None):
-    """
-    Encode a PNM file into a PNG file.
-    """
-    width, height = read_pnm_header(infile)
-    png = PNG(width, height,
-              interlaced=interlace,
-              transparent=transparent,
-              background=background,
-              gamma=gamma,
-              compression=compression)
-    png.convert_file(infile, outfile)
-
-
-# FIXME: Somewhere we need support for greyscale backgrounds etc.
-def color_triple(color):
-    """
-    Convert a command line color value to a RGB triple of integers.
-    """
-    if color.startswith('#') and len(color) == 4:
-        return (int(color[1], 16),
-                int(color[2], 16),
-                int(color[3], 16))
-    if color.startswith('#') and len(color) == 7:
-        return (int(color[1:3], 16),
-                int(color[3:5], 16),
-                int(color[5:7], 16))
-    elif color.startswith('#') and len(color) == 13:
-        return (int(color[1:5], 16),
-                int(color[5:9], 16),
-                int(color[9:13], 16))
-
-
-def _main():
-    """
-    Run the PNG encoder with options from the command line.
-    """
-    # Parse command line arguments
-    from optparse import OptionParser
-    version = '%prog ' + __revision__.strip('$').replace('Rev: ', 'r')
-    parser = OptionParser(version=version)
-    parser.set_usage("%prog [options] [pnmfile]")
-    parser.add_option("-i", "--interlace",
-                      default=False, action="store_true",
-                      help="create an interlaced PNG file (Adam7)")
-    parser.add_option("-t", "--transparent",
-                      action="store", type="string", metavar="color",
-                      help="mark the specified color as transparent")
-    parser.add_option("-b", "--background",
-                      action="store", type="string", metavar="color",
-                      help="store the specified background color")
-    parser.add_option("-g", "--gamma",
-                      action="store", type="float", metavar="value",
-                      help="store the specified gamma value")
-    parser.add_option("-c", "--compression",
-                      action="store", type="int", metavar="level",
-                      help="zlib compression level (0-9)")
-    parser.add_option("-T", "--test",
-                      default=False, action="store_true",
-                      help="run regression tests")
-    parser.add_option("-R", "--test-red",
-                      action="store", type="string", metavar="pattern",
-                      help="test pattern for the red image layer")
-    parser.add_option("-G", "--test-green",
-                      action="store", type="string", metavar="pattern",
-                      help="test pattern for the green image layer")
-    parser.add_option("-B", "--test-blue",
-                      action="store", type="string", metavar="pattern",
-                      help="test pattern for the blue image layer")
-    parser.add_option("-A", "--test-alpha",
-                      action="store", type="string", metavar="pattern",
-                      help="test pattern for the alpha image layer")
-    parser.add_option("-D", "--test-deep",
-                      default=False, action="store_true",
-                      help="make test pattern 16 bit per layer deep")
-    parser.add_option("-S", "--test-size",
-                      action="store", type="int", metavar="size",
-                      help="linear size of the test image")
-
-    (options, args) = parser.parse_args()
-    # Convert options
-    if options.transparent is not None:
-        options.transparent = color_triple(options.transparent)
-    if options.background is not None:
-        options.background = color_triple(options.background)
-
-    # Run regression tests
-    if options.test:
-        return test_suite(options)
-    # Prepare input and output files
-    if len(args) == 0:
-        infile = sys.stdin
-    elif len(args) == 1:
-        infile = open(args[0], 'rb')
-    else:
-        parser.error("more than one input file")
-    outfile = sys.stdout
-    # Encode PNM to PNG
-    pnmtopng(infile, outfile,
-             interlace=options.interlace,
-             transparent=options.transparent,
-             background=options.background,
-             gamma=options.gamma,
-             compression=options.compression)
-
-
 class Reader:
     """
     PNG decoder in pure Python.
@@ -795,6 +667,134 @@ def test_suite(options):
     writer.write_array(sys.stdout, pixels,
                        interlace=options.interlace)
     return 0
+
+
+def read_pnm_header(infile, supported='P6'):
+    """
+    Read a PNM header, return width and height of the image in pixels.
+    """
+    header = []
+    while len(header) < 4:
+        line = infile.readline()
+        sharp = line.find('#')
+        if sharp > -1:
+            line = line[:sharp]
+        header.extend(line.split())
+        if len(header) == 3 and header[0] == 'P4':
+            break # PBM doesn't have maxval
+    if header[0] not in supported:
+        raise NotImplementedError('file format %s not supported' % header[0])
+    if header[0] != 'P4' and header[3] != '255':
+        raise NotImplementedError('maxval %s not supported' % header[3])
+    return int(header[1]), int(header[2])
+
+
+def pnmtopng(infile, outfile,
+        interlace=None, transparent=None, background=None,
+        gamma=None, compression=None):
+    """
+    Encode a PNM file into a PNG file.
+    """
+    width, height = read_pnm_header(infile)
+    png = PNG(width, height,
+              interlaced=interlace,
+              transparent=transparent,
+              background=background,
+              gamma=gamma,
+              compression=compression)
+    png.convert_file(infile, outfile)
+
+
+# FIXME: Somewhere we need support for greyscale backgrounds etc.
+def color_triple(color):
+    """
+    Convert a command line color value to a RGB triple of integers.
+    """
+    if color.startswith('#') and len(color) == 4:
+        return (int(color[1], 16),
+                int(color[2], 16),
+                int(color[3], 16))
+    if color.startswith('#') and len(color) == 7:
+        return (int(color[1:3], 16),
+                int(color[3:5], 16),
+                int(color[5:7], 16))
+    elif color.startswith('#') and len(color) == 13:
+        return (int(color[1:5], 16),
+                int(color[5:9], 16),
+                int(color[9:13], 16))
+
+
+def _main():
+    """
+    Run the PNG encoder with options from the command line.
+    """
+    # Parse command line arguments
+    from optparse import OptionParser
+    version = '%prog ' + __revision__.strip('$').replace('Rev: ', 'r')
+    parser = OptionParser(version=version)
+    parser.set_usage("%prog [options] [pnmfile]")
+    parser.add_option("-i", "--interlace",
+                      default=False, action="store_true",
+                      help="create an interlaced PNG file (Adam7)")
+    parser.add_option("-t", "--transparent",
+                      action="store", type="string", metavar="color",
+                      help="mark the specified color as transparent")
+    parser.add_option("-b", "--background",
+                      action="store", type="string", metavar="color",
+                      help="store the specified background color")
+    parser.add_option("-g", "--gamma",
+                      action="store", type="float", metavar="value",
+                      help="store the specified gamma value")
+    parser.add_option("-c", "--compression",
+                      action="store", type="int", metavar="level",
+                      help="zlib compression level (0-9)")
+    parser.add_option("-T", "--test",
+                      default=False, action="store_true",
+                      help="run regression tests")
+    parser.add_option("-R", "--test-red",
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the red image layer")
+    parser.add_option("-G", "--test-green",
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the green image layer")
+    parser.add_option("-B", "--test-blue",
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the blue image layer")
+    parser.add_option("-A", "--test-alpha",
+                      action="store", type="string", metavar="pattern",
+                      help="test pattern for the alpha image layer")
+    parser.add_option("-D", "--test-deep",
+                      default=False, action="store_true",
+                      help="make test pattern 16 bit per layer deep")
+    parser.add_option("-S", "--test-size",
+                      action="store", type="int", metavar="size",
+                      help="linear size of the test image")
+
+    (options, args) = parser.parse_args()
+    # Convert options
+    if options.transparent is not None:
+        options.transparent = color_triple(options.transparent)
+    if options.background is not None:
+        options.background = color_triple(options.background)
+
+    # Run regression tests
+    if options.test:
+        return test_suite(options)
+    # Prepare input and output files
+    if len(args) == 0:
+        infile = sys.stdin
+    elif len(args) == 1:
+        infile = open(args[0], 'rb')
+    else:
+        parser.error("more than one input file")
+    outfile = sys.stdout
+    # Encode PNM to PNG
+    pnmtopng(infile, outfile,
+             interlace=options.interlace,
+             transparent=options.transparent,
+             background=options.background,
+             gamma=options.gamma,
+             compression=options.compression)
 
 
 if __name__ == '__main__':
