@@ -134,7 +134,7 @@ class Writer:
             raise ValueError(
                 "Transparent colour not allowed with alpha channel")
 
-        if bytespersample < 1 or bytespersample > 2:
+        if bytes_per_sample < 1 or bytes_per_sample > 2:
             raise ValueError("Bytes per sample must be 1 or 2")
 
         if transparent is not None:
@@ -165,7 +165,6 @@ class Writer:
 
         self.width = width
         self.height = height
-        self.interlaced = interlaced
         self.transparent = transparent
         self.background = background
         self.gamma = gamma
@@ -204,7 +203,7 @@ class Writer:
         checksum = zlib.crc32(data, checksum)
         outfile.write(struct.pack("!I", checksum))
 
-    def write(self, outfile, scanlines):
+    def write(self, outfile, scanlines, interlaced=False):
         """
         Write a PNG image to the output file.
         """
@@ -212,31 +211,37 @@ class Writer:
         outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
 
         # http://www.w3.org/TR/PNG/#11IHDR
-        if self.interlaced:
-            self.interlaced = 1
+        if interlaced:
+            interlaced = 1
         else:
-            self.interlaced = 0
+            interlaced = 0
         self.write_chunk(outfile, 'IHDR',
-                         struct.pack("!2I5B", self.width, self.height, self.bytes_per_sample * 8,
-                                     self.color_type, 0, 0, self.interlaced))
+                         struct.pack("!2I5B", self.width, self.height,
+                                     self.bytes_per_sample * 8,
+                                     self.color_type, 0, 0, interlaced))
 
         # http://www.w3.org/TR/PNG/#11tRNS
         if self.transparent is not None:
             if self.greyscale:
-                self.write_chunk(outfile, 'tRNS', struct.pack("!1H", *self.transparent))
+                self.write_chunk(outfile, 'tRNS',
+                                 struct.pack("!1H", *self.transparent))
             else:
-                self.write_chunk(outfile, 'tRNS', struct.pack("!3H", *self.transparent))
+                self.write_chunk(outfile, 'tRNS',
+                                 struct.pack("!3H", *self.transparent))
 
         # http://www.w3.org/TR/PNG/#11bKGD
         if self.background is not None:
             if self.greyscale:
-                self.write_chunk(outfile, 'bKGD', struct.pack("!1H", *self.background))
+                self.write_chunk(outfile, 'bKGD',
+                                 struct.pack("!1H", *self.background))
             else:
-                self.write_chunk(outfile, 'bKGD', struct.pack("!3H", *self.background))
+                self.write_chunk(outfile, 'bKGD',
+                                 struct.pack("!3H", *self.background))
 
         # http://www.w3.org/TR/PNG/#11gAMA
         if self.gamma is not None:
-            self.write_chunk(outfile, 'gAMA', struct.pack("!L", int(self.gamma * 100000)))
+            self.write_chunk(outfile, 'gAMA',
+                             struct.pack("!L", int(self.gamma * 100000)))
 
         # http://www.w3.org/TR/PNG/#11IDAT
         if self.compression is not None:
@@ -707,7 +712,6 @@ def test_suite(options):
     def _test_checker_15(x, y):
         return _test_checker(x, y, 15)
 
-
     _test_patterns = {
         "GLR" : _test_gradient_horizontal_lr,
         "GRL" : _test_gradient_horizontal_rl,
@@ -730,8 +734,7 @@ def test_suite(options):
         "CK15" : _test_checker_15,
         }
 
-
-    def _test_pattern(width, height, depth, pattern):
+    def test_pattern(width, height, depth, pattern):
         a = array('B')
         fw = float(width)
         fh = float(height)
@@ -748,43 +751,48 @@ def test_suite(options):
                     a.append(v & 0xff)
         return a
 
-    def _write_test(fname, size=256, red="GTB", green="RCTR", blue="LRS", alpha=None, depth=1, file_options = {}):
-        out = open(fname, "wb")
-        r = _test_pattern(size, size, depth, red)
-        g = _test_pattern(size, size, depth, green)
-        b = _test_pattern(size, size, depth, blue)
+    def test_rgba(size=256, depth=1,
+                    red="GTB", green="RCTR", blue="LRS", alpha=None):
+        r = test_pattern(size, size, depth, red)
+        g = test_pattern(size, size, depth, green)
+        b = test_pattern(size, size, depth, blue)
         if alpha:
-            a = _test_pattern(size, size, depth, alpha)
+            a = test_pattern(size, size, depth, alpha)
         i = interleave_planes(r, g, size, size, depth, depth)
         i = interleave_planes(i, b, size, size, 2 * depth, depth)
         if alpha:
             i = interleave_planes(i, a, size, size, 3 * depth, depth)
-        p = PNG(size, size, i, has_alpha = (alpha is not None), bytes_per_sample = depth, **file_options)
-        p.write(out)
+        return i
 
     # The body of test_suite()
-    kw = {}
-    if options.test_red:
-        kw["red"] = options.test_red
-    if options.test_green:
-        kw["green"] = options.test_green
-    if options.test_blue:
-        kw["blue"] = options.test_blue
-    if options.test_alpha:
-        kw["alpha"] = options.test_alpha
-    if options.test_deep:
-        kw["depth"] = 2
+    size = 256
     if options.test_size:
-        kw["size"] = options.test_size
+        size = options.test_size
+    depth = 1
+    if options.test_deep:
+        depth = 2
 
-    kw["file_options"] = dict(interlaced=options.interlace,
-                              transparent=options.transparent,
-                              background=options.background,
-                              gamma=options.gamma,
-                              compression=options.compression)
+    kwargs = {}
+    if options.test_red:
+        kwargs["red"] = options.test_red
+    if options.test_green:
+        kwargs["green"] = options.test_green
+    if options.test_blue:
+        kwargs["blue"] = options.test_blue
+    if options.test_alpha:
+        kwargs["alpha"] = options.test_alpha
+    pixels = test_rgba(size, depth, **kwargs)
 
-    _write_test('mixed.png', **kw)
+    writer = Writer(size, size,
+                    bytes_per_sample=depth,
+                    transparent=options.transparent,
+                    background=options.background,
+                    gamma=options.gamma,
+                    compression=options.compression)
+    writer.write_array(sys.stdout, pixels,
+                       interlace=options.interlace)
     return 0
+
 
 if __name__ == '__main__':
     _main()

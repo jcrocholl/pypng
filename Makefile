@@ -47,6 +47,9 @@ install :
 pylint :
 	pylint -iy --reports=no --good-names=x,y,r,g,b,a,i lib/png.py
 
+testsuite :
+	python lib/png.py --test > test/256.png
+
 README :
 	pydoc lib/png.py > $@
 
