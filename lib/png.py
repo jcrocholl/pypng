@@ -258,7 +258,7 @@ class Writer:
                 if len(compressed):
                     # print >> sys.stderr, len(data), len(compressed)
                     self.write_chunk(outfile, 'IDAT', compressed)
-                    data = array('B')
+                data = array('B')
         if len(data):
             compressed = compressor.compress(data.tostring())
             flushed = compressor.flush()
