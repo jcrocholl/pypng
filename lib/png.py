@@ -406,7 +406,7 @@ class Reader:
     PNG decoder in pure Python.
     """
 
-    def read_chunk(infile):
+    def read_chunk(self, infile):
         """
         Read a PNG chunk from the input file, return tag name and data.
         """
@@ -421,7 +421,7 @@ class Reader:
                              % (tag, checksum, verify))
         return tag, data
 
-    def _reconstruct_sub(pixels, offset, row_bytes, psize):
+    def _reconstruct_sub(self, pixels, offset, row_bytes, psize):
         """Reverse sub filter."""
         a_offset = offset
         offset += psize
@@ -432,7 +432,7 @@ class Reader:
             offset += 1
             a_offset += 1
 
-    def _reconstruct_up(pixels, offset, row_bytes, psize):
+    def _reconstruct_up(self, pixels, offset, row_bytes, psize):
         """Reverse up filter."""
         b_offset = offset - row_bytes
         for index in range(row_bytes):
@@ -442,7 +442,7 @@ class Reader:
             offset += 1
             b_offset += 1
 
-    def _reconstruct_average(pixels, offset, row_bytes, psize):
+    def _reconstruct_average(self, pixels, offset, row_bytes, psize):
         """Reverse average filter."""
         a_offset = offset - psize
         b_offset = offset - row_bytes
@@ -461,7 +461,7 @@ class Reader:
             a_offset += 1
             b_offset += 1
 
-    def _reconstruct_paeth(pixels, offset, row_bytes, psize):
+    def _reconstruct_paeth(self, pixels, offset, row_bytes, psize):
         """Reverse Paeth filter."""
         a_offset = offset - psize
         b_offset = offset - row_bytes
@@ -497,7 +497,7 @@ class Reader:
             b_offset += 1
             c_offset += 1
 
-    def read(infile):
+    def read(self, infile):
         """
         Read a simple PNG file, return width, height, pixels.
 
@@ -508,7 +508,7 @@ class Reader:
         assert signature == struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10)
         compressed = []
         while True:
-            tag, data = read_chunk(infile)
+            tag, data = self.read_chunk(infile)
             # print tag, len(data)
             if tag == 'IHDR': # http://www.w3.org/TR/PNG/#11IHDR
                 (width, height, bits_per_sample, color_type,
@@ -521,12 +521,15 @@ class Reader:
                 assert interlaced == 0
             if tag == 'IDAT': # http://www.w3.org/TR/PNG/#11IDAT
                 compressed.append(data)
+                # print >> sys.stderr, 'IDAT', len(compressed)
             if tag == 'IEND': # http://www.w3.org/TR/PNG/#11IEND
                 break
         scanlines = zlib.decompress(''.join(compressed))
         pixels = array('B')
         offset = 0
         row_bytes = 3*width
+        print >> sys.stderr, 'scanlines', len(scanlines), \
+              len(scanlines) / (row_bytes + 1)
         for y in range(height):
             filter_type = ord(scanlines[offset])
             # print >> sys.stderr, y, filter_type
@@ -763,6 +766,9 @@ def _main():
     parser.add_option("-c", "--compression",
                       action="store", type="int", metavar="level",
                       help="zlib compression level (0-9)")
+    parser.add_option("-d", "--decode",
+                      default=False, action="store_true",
+                      help="decode a simple PNG file, write a PPM file")
     parser.add_option("-T", "--test",
                       default=False, action="store_true",
                       help="run regression tests")
@@ -794,19 +800,28 @@ def _main():
 
     # Run regression tests
     if options.test:
-        return test_suite(options)
+        test_suite(options)
+        return 0
 
     # Prepare input and output files
     if len(args) == 0:
-        ppmfile = sys.stdin
+        infile = sys.stdin
     elif len(args) == 1:
-        ppmfile = open(args[0], 'rb')
+        infile = open(args[0], 'rb')
     else:
         parser.error("more than one input file")
     outfile = sys.stdout
 
+    # Decode PNG to PPM
+    if options.decode:
+        reader = Reader()
+        width, height, pixels = reader.read(infile)
+        outfile.write('P6 %s %s 255\n' % (width, height))
+        pixels.tofile(outfile)
+        return 0
+
     # Encode PNM to PNG
-    width, height = read_pnm_header(ppmfile)
+    width, height = read_pnm_header(infile)
     writer = Writer(width, height,
                     transparent=options.transparent,
                     background=options.background,
@@ -817,10 +832,10 @@ def _main():
         pgmfile = open(options.alpha, 'rb')
         if (width, height) != read_pnm_header(pgmfile, 'P5'):
             raise ValueError("alpha channel file has different size")
-        writer.convert_ppm_and_pgm(ppmfile, pgmfile, outfile,
+        writer.convert_ppm_and_pgm(infile, pgmfile, outfile,
                            interlace=options.interlace)
     else:
-        writer.convert_ppm(ppmfile, outfile,
+        writer.convert_ppm(infile, outfile,
                            interlace=options.interlace)
 
 
