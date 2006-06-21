@@ -66,6 +66,13 @@ __author__ = '$Author$'
 import sys, zlib, struct, math
 from array import array
 
+_adam7 = ((0, 0, 8, 8),
+	  (4, 0, 8, 8),
+	  (0, 4, 4, 8),
+	  (2, 0, 4, 4),
+	  (0, 2, 2, 4),
+	  (1, 0, 2, 2),
+	  (0, 1, 1, 2))
 
 def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
     """
@@ -106,6 +113,7 @@ class Writer:
                  has_alpha=False,
                  bytes_per_sample=1,
                  compression=None,
+		 interlaced=False,
                  chunk_limit=2**20):
         """
         Create a PNG encoder object.
@@ -173,6 +181,7 @@ class Writer:
         self.bytes_per_sample = bytes_per_sample
         self.compression = compression
         self.chunk_limit = chunk_limit
+	self.interlaced = interlaced
 
         if self.greyscale:
             self.color_depth = 1
@@ -203,7 +212,7 @@ class Writer:
         checksum = zlib.crc32(data, checksum)
         outfile.write(struct.pack("!I", checksum))
 
-    def write(self, outfile, scanlines, interlaced=False):
+    def write(self, outfile, scanlines):
         """
         Write a PNG image to the output file.
         """
@@ -211,7 +220,7 @@ class Writer:
         outfile.write(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
 
         # http://www.w3.org/TR/PNG/#11IHDR
-        if interlaced:
+        if self.interlaced:
             interlaced = 1
         else:
             interlaced = 0
@@ -258,45 +267,41 @@ class Writer:
                 if len(compressed):
                     # print >> sys.stderr, len(data), len(compressed)
                     self.write_chunk(outfile, 'IDAT', compressed)
-                data = array('B')
+                    data = array('B')
         if len(data):
             compressed = compressor.compress(data.tostring())
-        else:
-            compressed = ''
-        flushed = compressor.flush()
-        if len(compressed) or len(flushed):
-            # print >> sys.stderr, len(data), len(compressed), len(flushed)
-            self.write_chunk(outfile, 'IDAT', compressed + flushed)
+            flushed = compressor.flush()
+            if len(compressed) or len(flushed):
+                # print >> sys.stderr, len(data), len(compressed), len(flushed)
+                self.write_chunk(outfile, 'IDAT', compressed + flushed)
 
         # http://www.w3.org/TR/PNG/#11IEND
         self.write_chunk(outfile, 'IEND', '')
 
-    def write_array(self, outfile, pixels, interlace=False):
+    def write_array(self, outfile, pixels):
         """
         Encode a pixel array to PNG and write output file.
         """
-        if interlace:
-            self.write(outfile, self.array_scanlines_interlace(pixels),
-                       interlaced=True)
+        if self.interlaced:
+            self.write(outfile, self.array_scanlines_interlace(pixels))
         else:
             self.write(outfile, self.array_scanlines(pixels))
 
-    def convert_ppm(self, ppmfile, outfile, interlace=False):
+    def convert_ppm(self, ppmfile, outfile):
         """
         Convert a PPM file containing raw pixel data into a PNG file
         with the parameters set in the writer object.
         """
-        if interlace:
+        if self.interlaced:
             pixels = array('B')
             pixels.fromfile(ppmfile,
                             self.bytes_per_sample * self.color_depth *
                             self.width * self.height)
-            self.write(outfile, self.array_scanlines_interlace(pixels),
-                       interlaced=True)
+            self.write(outfile, self.array_scanlines_interlace(pixels))
         else:
             self.write(outfile, self.file_scanlines(ppmfile))
 
-    def convert_ppm_and_pgm(self, ppmfile, pgmfile, outfile, interlace=False):
+    def convert_ppm_and_pgm(self, ppmfile, pgmfile, outfile):
         """
         Convert a PPM and PGM file containing raw pixel data into a
         PNG outfile with the parameters set in the writer object.
@@ -312,9 +317,8 @@ class Writer:
         pixels = interleave_planes(pixels, apixels, self.width, self.height,
                                    self.bytes_per_sample * self.color_depth,
                                    self.bytes_per_sample)
-        if interlace:
-            self.write(outfile, self.array_scanlines_interlace(pixels),
-                       interlaced=True)
+        if self.interlaced:
+            self.write(outfile, self.array_scanlines_interlace(pixels))
         else:
             self.write(outfile, self.array_scanlines(pixels))
 
@@ -372,15 +376,8 @@ class Writer:
         Generator for interlaced scanlines from an array.
         http://www.w3.org/TR/PNG/#8InterlaceMethods
         """
-        adam7 = ((0, 0, 8, 8),
-                 (4, 0, 8, 8),
-                 (0, 4, 4, 8),
-                 (2, 0, 4, 4),
-                 (0, 2, 2, 4),
-                 (1, 0, 2, 2),
-                 (0, 1, 1, 2))
         row_bytes = self.psize * self.width
-        for xstart, ystart, xstep, ystep in adam7:
+        for xstart, ystart, xstep, ystep in _adam7:
             for y in range(ystart, self.height, ystep):
                 if xstart >= self.width:
                     continue
@@ -408,7 +405,8 @@ class Reader:
     PNG decoder in pure Python.
     """
 
-    def read_chunk(self, infile):
+    @staticmethod
+    def read_chunk(infile):
         """
         Read a PNG chunk from the input file, return tag name and data.
         """
@@ -423,131 +421,270 @@ class Reader:
                              % (tag, checksum, verify))
         return tag, data
 
-    def _reconstruct_sub(self, pixels, offset, row_bytes, psize):
+    @staticmethod
+    def _reconstruct_sub(pixels, offset, row_bytes, xstep, ystep, psize):
         """Reverse sub filter."""
         a_offset = offset
-        offset += psize
-        for index in range(psize, row_bytes):
-            x = pixels[offset]
-            a = pixels[a_offset]
-            pixels[offset] = (x + a) & 0xff
-            offset += 1
-            a_offset += 1
+        offset += psize * xstep
+	if xstep == 1:
+	    for index in range(psize, row_bytes):
+		x = pixels[offset]
+		a = pixels[a_offset]
+		pixels[offset] = (x + a) & 0xff
+		offset += 1
+		a_offset += 1
+	else:
+	    for index in range(psize * xstep, row_bytes, psize * xstep):
+		for i in range(psize):
+		    x = pixels[offset + i]
+		    a = pixels[a_offset + i]
+		    pixels[offset + i] = (x + a) & 0xff
+		offset += psize * xstep
+		a_offset += psize * xstep
 
-    def _reconstruct_up(self, pixels, offset, row_bytes, psize):
+    @staticmethod
+    def _reconstruct_up(pixels, offset, row_bytes, xstep, ystep, psize):
         """Reverse up filter."""
-        b_offset = offset - row_bytes
-        for index in range(row_bytes):
-            x = pixels[offset]
-            b = pixels[b_offset]
-            pixels[offset] = (x + b) & 0xff
-            offset += 1
-            b_offset += 1
+        b_offset = offset - (row_bytes * ystep)
+	if xstep == 1:
+	    for index in range(row_bytes):
+		x = pixels[offset]
+		b = pixels[b_offset]
+		pixels[offset] = (x + b) & 0xff
+		offset += 1
+		b_offset += 1
+	else:
+	    for index in range(0, row_bytes, xstep * psize):
+		for i in range(psize):
+		    x = pixels[offset + i]
+		    b = pixels[b_offset + i]
+		    pixels[offset + i] = (x + b) & 0xff
+		offset += psize * xstep
+		b_offset += psize * xstep
 
-    def _reconstruct_average(self, pixels, offset, row_bytes, psize):
+    @staticmethod
+    def _reconstruct_average(pixels, offset, row_bytes, xstep, ystep, psize):
         """Reverse average filter."""
-        a_offset = offset - psize
-        b_offset = offset - row_bytes
-        for index in range(row_bytes):
-            x = pixels[offset]
-            if index < psize:
-                a = 0
-            else:
-                a = pixels[offset-psize]
-            if b_offset < 0:
-                b = 0
-            else:
-                b = pixels[b_offset]
-            pixels[offset] = (x + (a + b) / 2) & 0xff
-            offset += 1
-            a_offset += 1
-            b_offset += 1
+        a_offset = offset - (psize * xstep)
+        b_offset = offset - (row_bytes * ystep)
+	if xstep == 1:
+	    for index in range(row_bytes):
+		x = pixels[offset]
+		if index < psize:
+		    a = 0
+		else:
+		    a = pixels[a_offset]
+		if b_offset < 0:
+		    b = 0
+		else:
+		    b = pixels[b_offset]
+		pixels[offset] = (x + ((a + b) >> 1)) & 0xff
+		offset += 1
+		a_offset += 1
+		b_offset += 1
+	else:
+	    for index in range(0, row_bytes, psize * xstep):
+		for i in range(psize):
+		    x = pixels[offset+i]
+		    if index < psize:
+			a = 0
+		    else:
+			a = pixels[a_offset + i]
+		    if b_offset < 0:
+			b = 0
+		    else:
+			b = pixels[b_offset + i]
+		    pixels[offset + i] = (x + ((a + b) >> 1)) & 0xff
+		offset += psize * xstep
+		a_offset += psize * xstep
+		b_offset += psize * xstep
 
-    def _reconstruct_paeth(self, pixels, offset, row_bytes, psize):
+    @staticmethod
+    def _reconstruct_paeth(pixels, offset, row_bytes, xstep, ystep, psize):
         """Reverse Paeth filter."""
-        a_offset = offset - psize
-        b_offset = offset - row_bytes
-        c_offset = b_offset - psize
-        for index in range(row_bytes):
-            x = pixels[offset]
-            if index < psize:
-                a = c = 0
-                # if offset_b < 0:
-                #     b = 0
-                # else:
-                b = pixels[b_offset]
-            else:
-                a = pixels[a_offset]
-                # if offset_b < 0:
-                #     b = c = 0
-                # else:
-                b = pixels[b_offset]
-                c = pixels[c_offset]
-            p = a + b - c
-            pa = abs(p - a)
-            pb = abs(p - b)
-            pc = abs(p - c)
-            if pa <= pb and pa <= pc:
-                pr = a
-            elif pb <= pc:
-                pr = b
-            else:
-                pr = c
-            pixels[offset] = (x + pr) & 0xff
-            offset += 1
-            a_offset += 1
-            b_offset += 1
-            c_offset += 1
+        a_offset = offset - (psize * xstep)
+        b_offset = offset - (row_bytes * ystep)
+        c_offset = b_offset - (psize * xstep)
+	# There's enough inside this loop that it's probably not worth optimising for xstep == 1
+        for index in range(0, row_bytes, psize * xstep):
+	    for i in range(psize):
+		x = pixels[offset+i]
+		if index < psize:
+		    a = c = 0
+		    b = pixels[b_offset+i]
+		else:
+		    a = pixels[a_offset+i]
+		    b = pixels[b_offset+i]
+		    c = pixels[c_offset+i]
+		p = a + b - c
+		pa = abs(p - a)
+		pb = abs(p - b)
+		pc = abs(p - c)
+		if pa <= pb and pa <= pc:
+		    pr = a
+		elif pb <= pc:
+		    pr = b
+		else:
+		    pr = c
+		pixels[offset+i] = (x + pr) & 0xff
+            offset += psize * xstep
+            a_offset += psize * xstep
+            b_offset += psize * xstep
+            c_offset += psize * xstep
 
-    def read(self, infile):
+    # N.B.  PNG files with 'up', 'average' or 'paeth' filters on the first line of a pass are legal.
+    # The code above for 'average' deals with this case explicitly.  For up we map to the null
+    # filter and for paeth we map to the sub filter.
+
+    @staticmethod
+    def reconstruct_line(filter_type, first_line, pixels, offset, row_bytes, xstep, ystep, psize):
+	# print >> sys.stderr, "Filter type %s, first_line=%s" % (filter_type, first_line)
+	filter_type += (first_line << 8)
+	if filter_type == 1 or filter_type == 0x101 or filter_type == 0x104:
+	    Reader._reconstruct_sub(pixels, offset, row_bytes, xstep, ystep, psize)
+	elif filter_type == 2:
+	    Reader._reconstruct_up(pixels, offset, row_bytes, xstep, ystep, psize)
+	elif filter_type == 3 or filter_type == 0x103:
+	    Reader._reconstruct_average(pixels, offset, row_bytes, xstep, ystep, psize)
+	elif filter_type == 4:
+	    Reader._reconstruct_paeth(pixels, offset, row_bytes, xstep, ystep, psize)
+	return
+
+    @staticmethod
+    def deinterlace(scanlines, width, height, planes, bpp):
+	print >> sys.stderr, "Reading interlaced, w=%s, r=%s, planes=%s, bpp=%s" % (width, height, planes, bpp)
+	a = array('B')
+	# Make the array big enough
+	psize = planes * bpp
+	temp = scanlines[0:width*height*psize]
+	a.extend(temp)
+	source_offset = 0
+	row_bytes = width * psize
+        for xstart, ystart, xstep, ystep in _adam7:
+	    # print >> sys.stderr, "Adam7: start=%s,%s step=%s,%s" % (xstart, ystart, xstep, ystep)
+	    filter_first_line = 1
+            for y in range(ystart, height, ystep):
+                if xstart >= width:
+                    continue
+		filter_type = scanlines[source_offset]
+		source_offset += 1
+                if xstep == 1:
+                    offset = y * row_bytes
+		    a[offset:offset+row_bytes] = scanlines[source_offset:source_offset + row_bytes]
+		    source_offset += row_bytes
+                else:
+                    # Note we want the ceiling of (width - xstart) / xtep
+                    row_len = psize * ((width - xstart + xstep - 1) / xstep)
+                    offset = y * row_bytes + xstart * psize
+                    end_offset = (y+1) * row_bytes
+                    skip = psize * xstep
+                    for i in range(psize):
+			a[offset+i:end_offset:skip] = scanlines[source_offset + i: source_offset + row_len:psize]
+		    source_offset += row_len
+		if filter_type:
+		    Reader.reconstruct_line(filter_type, filter_first_line, a, offset, row_bytes, xstep, ystep, psize)
+		filter_first_line = 0
+	return a
+
+    @staticmethod
+    def read_flat(scanlines, width, height, planes, bpp):
+	a = array('B')
+	offset = 0
+	source_offset = 0
+	psize = planes * bpp
+	row_bytes = width * psize
+	filter_first_line = 1
+	for y in range(height):
+	    filter_type = scanlines[source_offset]
+	    source_offset += 1
+	    a.extend(scanlines[source_offset: source_offset + row_bytes])
+	    if filter_type:
+		Reader.reconstruct_line(filter_type, filter_first_line, a, offset, row_bytes, 1, 1, psize)
+	    filter_first_line = 0
+	    offset += row_bytes
+	    source_offset += row_bytes
+	return a
+
+    @staticmethod
+    def read(infile):
         """
-        Read a simple PNG file, return width, height, pixels.
+        Read a simple PNG file, return width, height, pixels and image metadata
 
         This function is a very early prototype with limited flexibility
         and excessive use of memory.
         """
         signature = infile.read(8)
-        assert signature == struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10)
+        if (signature != struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10)):
+	    raise Exception("PNG file has invalid header")
         compressed = []
+	image_metadata = {}
         while True:
-            tag, data = self.read_chunk(infile)
-            # print tag, len(data)
+            tag, data = Reader.read_chunk(infile)
+            # print >> sys.stderr, tag, len(data)
             if tag == 'IHDR': # http://www.w3.org/TR/PNG/#11IHDR
                 (width, height, bits_per_sample, color_type,
                  compression_method, filter_method,
                  interlaced) = struct.unpack("!2I5B", data)
-                assert bits_per_sample == 8
-                assert color_type == 2
-                assert compression_method == 0
-                assert filter_method == 0
-                assert interlaced == 0
-            if tag == 'IDAT': # http://www.w3.org/TR/PNG/#11IDAT
+		bps = bits_per_sample / 8
+		if bps == 0:
+		    raise Exception("Unsupported pixel depth")
+		if bps > 2 or bits_per_sample != (bps * 8):
+		    raise Exception("Invalid pixel depth")
+		if color_type == 0:
+		    greyscale = True
+		    has_alpha = False
+		    planes = 1
+		elif color_type == 2:
+		    greyscale = False
+		    has_alpha = False
+		    planes = 3
+		elif color_type == 4:
+		    greyscale = True
+		    has_alpha = True
+		    planes = 2
+		elif color_type == 6:
+		    greyscale = False
+		    has_alpha = True
+		    planes = 4
+		else:
+		    raise Exception("Unknown PNG colour type %s" % color_type)	
+		if compression_method != 0:
+		    raise Exception("Unknown compression method")
+		if filter_method != 0:
+		    raise Exception("Unknown filter method")
+	    elif tag == 'IDAT': # http://www.w3.org/TR/PNG/#11IDAT
                 compressed.append(data)
-                # print >> sys.stderr, 'IDAT', len(compressed)
-            if tag == 'IEND': # http://www.w3.org/TR/PNG/#11IEND
+	    elif tag == 'bKGD':
+		if greyscale:
+		    image_metadata["background"] = struct.unpack("!1H", data)
+		else:
+		    image_metadata["background"] = struct.unpack("!3H", data)
+	    elif tag == 'tRNS':
+		if greyscale:
+		    image_metadata["transparent"] = struct.unpack("!1H", data)
+		else:
+		    image_metadata["transparent"] = struct.unpack("!3H", data)
+	    elif tag == 'gAMA':
+		image_metadata["gamma"] = (struct.unpack("!L", data)[0]) / 100000.0
+            elif tag == 'IEND': # http://www.w3.org/TR/PNG/#11IEND
                 break
-        scanlines = zlib.decompress(''.join(compressed))
-        pixels = array('B')
-        offset = 0
-        row_bytes = 3*width
-        print >> sys.stderr, 'scanlines', len(scanlines), \
-              len(scanlines) / (row_bytes + 1)
-        for y in range(height):
-            filter_type = ord(scanlines[offset])
-            # print >> sys.stderr, y, filter_type
-            offset += 1
-            pixels.fromstring(scanlines[offset:offset+row_bytes])
-            if filter_type == 1:
-                _reconstruct_sub(pixels, y*row_bytes, row_bytes, 3)
-            elif filter_type == 2:
-                _reconstruct_up(pixels, y*row_bytes, row_bytes, 3)
-            elif filter_type == 3:
-                _reconstruct_average(pixels, y*row_bytes, row_bytes, 3)
-            elif filter_type == 4:
-                _reconstruct_paeth(pixels, y*row_bytes, row_bytes, 3)
-            offset += row_bytes
-        return width, height, pixels
+        scanlines = array('B', zlib.decompress(''.join(compressed)))
+	if interlaced:
+	    pixels = Reader.deinterlace(scanlines, width, height, planes, bps)
+	else:
+	    pixels = Reader.read_flat(scanlines, width, height, planes, bps)
+	image_metadata["greyscale"] = greyscale
+	image_metadata["has_alpha"] = has_alpha
+	image_metadata["bytes_per_sample"] = bps
+	image_metadata["interlaced"] = interlaced
+        return width, height, pixels, image_metadata
 
+    @staticmethod
+    def read_file(fname):
+	f = file(fname, "rb")
+	r = Reader.read(f)
+	f.close()
+	return r
 
 def test_suite(options):
     """
@@ -619,6 +756,12 @@ def test_suite(options):
     def test_checker_15(x, y):
         return test_checker(x, y, 15)
 
+    def test_zero(x, y):
+        return 0
+
+    def test_one(x, y):
+        return 1
+
     test_patterns = {
         "GLR" : test_gradient_horizontal_lr,
         "GRL" : test_gradient_horizontal_rl,
@@ -639,6 +782,8 @@ def test_suite(options):
         "RLS" : test_stripe_rl_10,
         "CK8" : test_checker_8,
         "CK15" : test_checker_15,
+	"ZERO" : test_zero,
+	"ONE" : test_one,
         }
 
     def test_pattern(width, height, depth, pattern):
@@ -659,7 +804,7 @@ def test_suite(options):
         return a
 
     def test_rgba(size=256, depth=1,
-                    red="GTB", green="RCTR", blue="LRS", alpha=None):
+                    red="GTB", green="GLR", blue="RTL", alpha=None):
         r = test_pattern(size, size, depth, red)
         g = test_pattern(size, size, depth, green)
         b = test_pattern(size, size, depth, blue)
@@ -696,9 +841,23 @@ def test_suite(options):
                     background=options.background,
                     gamma=options.gamma,
                     has_alpha=options.test_alpha,
-                    compression=options.compression)
-    writer.write_array(sys.stdout, pixels,
-                       interlace=options.interlace)
+                    compression=options.compression,
+		    interlaced=options.interlace)
+
+    if options.there_and_back:
+	import tempfile, os
+	f = tempfile.mkstemp(".png")
+	fh = os.fdopen(f[0], "wb")
+	writer.write_array(fh, pixels)
+	fh.close()
+	fh = file(f[1], "rb")
+	width, height, pixels, metadata = Reader.read(fh)
+	print >> sys.stderr, "w=%s, h=%s" % (width, height)
+	print >> sys.stderr, metadata
+	writer = Writer(width, height, **metadata)
+
+    writer.write_array(sys.stdout, pixels)
+
     return 0
 
 
@@ -768,9 +927,6 @@ def _main():
     parser.add_option("-c", "--compression",
                       action="store", type="int", metavar="level",
                       help="zlib compression level (0-9)")
-    parser.add_option("-d", "--decode",
-                      default=False, action="store_true",
-                      help="decode a simple PNG file, write a PPM file")
     parser.add_option("-T", "--test",
                       default=False, action="store_true",
                       help="run regression tests")
@@ -792,6 +948,9 @@ def _main():
     parser.add_option("-S", "--test-size",
                       action="store", type="int", metavar="size",
                       help="linear size of the test image")
+    parser.add_option("-X", "--there-and-back",
+		      default=False, action="store_true",
+		      help="after creating a test image, unpack it and then re-pack it")
     (options, args) = parser.parse_args()
 
     # Convert options
@@ -802,28 +961,19 @@ def _main():
 
     # Run regression tests
     if options.test:
-        test_suite(options)
-        return 0
+        return test_suite(options)
 
     # Prepare input and output files
     if len(args) == 0:
-        infile = sys.stdin
+        ppmfile = sys.stdin
     elif len(args) == 1:
-        infile = open(args[0], 'rb')
+        ppmfile = open(args[0], 'rb')
     else:
         parser.error("more than one input file")
     outfile = sys.stdout
 
-    # Decode PNG to PPM
-    if options.decode:
-        reader = Reader()
-        width, height, pixels = reader.read(infile)
-        outfile.write('P6 %s %s 255\n' % (width, height))
-        pixels.tofile(outfile)
-        return 0
-
     # Encode PNM to PNG
-    width, height = read_pnm_header(infile)
+    width, height = read_pnm_header(ppmfile)
     writer = Writer(width, height,
                     transparent=options.transparent,
                     background=options.background,
@@ -834,12 +984,13 @@ def _main():
         pgmfile = open(options.alpha, 'rb')
         if (width, height) != read_pnm_header(pgmfile, 'P5'):
             raise ValueError("alpha channel file has different size")
-        writer.convert_ppm_and_pgm(infile, pgmfile, outfile,
+        writer.convert_ppm_and_pgm(ppmfile, pgmfile, outfile,
                            interlace=options.interlace)
     else:
-        writer.convert_ppm(infile, outfile,
+        writer.convert_ppm(ppmfile, outfile,
                            interlace=options.interlace)
 
 
 if __name__ == '__main__':
     _main()
+
