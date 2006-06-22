@@ -436,7 +436,7 @@ class Reader:
 	if "pixels" in kw:
 	    kw["file"] = _readable(kw["pixels"])
 	self.file = kw["file"]
-	
+
     def read_chunk(self):
         """
         Read a PNG chunk from the input file, return tag name and data.
@@ -672,7 +672,7 @@ class Reader:
 		    has_alpha = True
 		    planes = 4
 		else:
-		    raise Exception("Unknown PNG colour type %s" % color_type)	
+		    raise Exception("Unknown PNG colour type %s" % color_type)
 		if compression_method != 0:
 		    raise Exception("Unknown compression method")
 		if filter_method != 0:
