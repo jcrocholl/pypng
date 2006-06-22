@@ -395,6 +395,10 @@ class Writer:
                     yield row
 
 class _readable:
+    """
+    A simple file-like interface for strings and arrays.
+    """
+
     def __init__(self, buf):
         self.buf = buf
         self.offset = 0
@@ -412,6 +416,17 @@ class Reader:
     """
 
     def __init__(self, _guess=None, **kw):
+        """
+        Create a PNG decoder object.
+
+        The constructor expects exactly one keyword argument. If you
+        supply a positional argument instead, the constructor will
+        guess the input type. You can choose among the following:
+        filename - name of PNG input file
+        file - object with a read() method
+        pixels - array or string with PNG data
+
+        """
         if _guess:
             if len(kw):
                 raise ValueError("Reader must be initialised with exactly one parameter")
