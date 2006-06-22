@@ -420,30 +420,33 @@ class Reader:
         Create a PNG decoder object.
 
         The constructor expects exactly one keyword argument. If you
-        supply a positional argument instead, the constructor will
-        guess the input type. You can choose among the following:
+        supply a positional argument instead, it will guess the input
+        type. You can choose among the following arguments:
         filename - name of PNG input file
         file - object with a read() method
         pixels - array or string with PNG data
 
         """
-        if _guess:
-            if len(kw):
-                raise ValueError("Reader must be initialised with exactly one parameter")
+        if ((_guess is not None and len(kw) != 0) or
+            (_guess is None and len(kw) != 1):
+            raise TypeError("Reader() takes exactly 1 argument")
+
+        if _guess is not None:
             if isinstance(_guess, array):
                 kw["pixels"] = _guess
             elif isinstance(_guess, str):
                 kw["filename"] = _guess
             elif isinstance(_guess, file):
                 kw["file"] = _guess
-        if len(kw) != 1:
-            raise ValueError("Reader must be initialised with exactly one parameter")
+
         if "filename" in kw:
-            fh = file(kw["filename"])
-            kw["file"] = fh
-        if "pixels" in kw:
-            kw["file"] = _readable(kw["pixels"])
-        self.file = kw["file"]
+            self.file = file(kw["filename"])
+        elif "file" in kw:
+            self.file = kw["file"]
+        elif "pixels" in kw:
+            self.file = _readable(kw["pixels"])
+        else:
+            raise TypeError("Expecting filename, file or pixels array")
 
     def read_chunk(self):
         """
@@ -456,7 +459,7 @@ class Reader:
         verify = zlib.crc32(tag)
         verify = zlib.crc32(data, verify)
         if checksum != verify:
-            raise ValueError('checksum error in %s chunk: %x != %x'
+            raise ValueError("Checksum error in %s chunk: %x != %x"
                              % (tag, checksum, verify))
         return tag, data
 
@@ -893,9 +896,9 @@ def read_pnm_header(infile, supported='P6'):
         if len(header) == 3 and header[0] == 'P4':
             break # PBM doesn't have maxval
     if header[0] not in supported:
-        raise NotImplementedError('file format %s not supported' % header[0])
+        raise NotImplementedError('File format %s not supported' % header[0])
     if header[0] != 'P4' and header[3] != '255':
-        raise NotImplementedError('maxval %s not supported' % header[3])
+        raise NotImplementedError('Maxval %s not supported' % header[3])
     return int(header[1]), int(header[2])
 
 
@@ -998,7 +1001,7 @@ def _main():
     if options.alpha is not None:
         pgmfile = open(options.alpha, 'rb')
         if (width, height) != read_pnm_header(pgmfile, 'P5'):
-            raise ValueError("alpha channel file has different size")
+            raise ValueError("Alpha channel file has different size")
         writer.convert_ppm_and_pgm(ppmfile, pgmfile, outfile,
                            interlace=options.interlace)
     else:
