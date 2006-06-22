@@ -267,13 +267,15 @@ class Writer:
                 if len(compressed):
                     # print >> sys.stderr, len(data), len(compressed)
                     self.write_chunk(outfile, 'IDAT', compressed)
-                    data = array('B')
+                data = array('B')
         if len(data):
             compressed = compressor.compress(data.tostring())
-            flushed = compressor.flush()
-            if len(compressed) or len(flushed):
-                # print >> sys.stderr, len(data), len(compressed), len(flushed)
-                self.write_chunk(outfile, 'IDAT', compressed + flushed)
+        else:
+            compressed = ''
+        flushed = compressor.flush()
+        if len(compressed) or len(flushed):
+            # print >> sys.stderr, len(data), len(compressed), len(flushed)
+            self.write_chunk(outfile, 'IDAT', compressed + flushed)
 
         # http://www.w3.org/TR/PNG/#11IEND
         self.write_chunk(outfile, 'IEND', '')
