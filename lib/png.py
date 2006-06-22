@@ -350,15 +350,8 @@ class Writer:
         Generator for interlaced scanlines from an array.
         http://www.w3.org/TR/PNG/#8InterlaceMethods
         """
-        adam7 = ((0, 0, 8, 8),
-                 (4, 0, 8, 8),
-                 (0, 4, 4, 8),
-                 (2, 0, 4, 4),
-                 (0, 2, 2, 4),
-                 (1, 0, 2, 2),
-                 (0, 1, 1, 2))
         row_bytes = self.psize * self.width
-        for xstart, ystart, xstep, ystep in adam7:
+        for xstart, ystart, xstep, ystep in _adam7:
             for y in range(ystart, self.height, ystep):
                 if xstart < self.width:
                     if xstep == 1:
