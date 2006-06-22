@@ -67,12 +67,12 @@ import sys, zlib, struct, math
 from array import array
 
 _adam7 = ((0, 0, 8, 8),
-	  (4, 0, 8, 8),
-	  (0, 4, 4, 8),
-	  (2, 0, 4, 4),
-	  (0, 2, 2, 4),
-	  (1, 0, 2, 2),
-	  (0, 1, 1, 2))
+          (4, 0, 8, 8),
+          (0, 4, 4, 8),
+          (2, 0, 4, 4),
+          (0, 2, 2, 4),
+          (1, 0, 2, 2),
+          (0, 1, 1, 2))
 
 def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
     """
@@ -113,7 +113,7 @@ class Writer:
                  has_alpha=False,
                  bytes_per_sample=1,
                  compression=None,
-		 interlaced=False,
+                 interlaced=False,
                  chunk_limit=2**20):
         """
         Create a PNG encoder object.
@@ -181,7 +181,7 @@ class Writer:
         self.bytes_per_sample = bytes_per_sample
         self.compression = compression
         self.chunk_limit = chunk_limit
-	self.interlaced = interlaced
+        self.interlaced = interlaced
 
         if self.greyscale:
             self.color_depth = 1
@@ -403,15 +403,15 @@ class Writer:
 
 class _readable:
     def __init__(self, buf):
-	self.buf = buf
-	self.offset = 0
+        self.buf = buf
+        self.offset = 0
 
     def read(self, n):
-	r = buf[offset:offset+n]
-	if isinstance(r, array):
-	    r = r.tostring()
-	offset += n
-	return r
+        r = buf[offset:offset+n]
+        if isinstance(r, array):
+            r = r.tostring()
+        offset += n
+        return r
 
 class Reader:
     """
@@ -419,23 +419,23 @@ class Reader:
     """
 
     def __init__(self, _guess=None, **kw):
-	if _guess:
-	    if len(kw):
-		raise ValueError("Reader must be initialised with exactly one parameter")
-	    if isinstance(_guess, array):
-		kw["pixels"] = _guess
-	    elif isinstance(_guess, str):
-		kw["filename"] = _guess
-	    elif isinstance(_guess, file):
-		kw["file"] = _guess
-	if len(kw) != 1:
-	    raise ValueError("Reader must be initialised with exactly one parameter")
-	if "filename" in kw:
-	    fh = file(kw["filename"])
-	    kw["file"] = fh
-	if "pixels" in kw:
-	    kw["file"] = _readable(kw["pixels"])
-	self.file = kw["file"]
+        if _guess:
+            if len(kw):
+                raise ValueError("Reader must be initialised with exactly one parameter")
+            if isinstance(_guess, array):
+                kw["pixels"] = _guess
+            elif isinstance(_guess, str):
+                kw["filename"] = _guess
+            elif isinstance(_guess, file):
+                kw["file"] = _guess
+        if len(kw) != 1:
+            raise ValueError("Reader must be initialised with exactly one parameter")
+        if "filename" in kw:
+            fh = file(kw["filename"])
+            kw["file"] = fh
+        if "pixels" in kw:
+            kw["file"] = _readable(kw["pixels"])
+        self.file = kw["file"]
 
     def read_chunk(self):
         """
@@ -454,110 +454,110 @@ class Reader:
 
     def _reconstruct_sub(self, offset, xstep, ystep):
         """Reverse sub filter."""
-	pixels = self.pixels
+        pixels = self.pixels
         a_offset = offset
         offset += self.psize * xstep
-	if xstep == 1:
-	    for index in range(self.psize, self.row_bytes):
-		x = pixels[offset]
-		a = pixels[a_offset]
-		pixels[offset] = (x + a) & 0xff
-		offset += 1
-		a_offset += 1
-	else:
-	    for index in range(self.psize * xstep, self.row_bytes, self.psize * xstep):
-		for i in range(self.psize):
-		    x = pixels[offset + i]
-		    a = pixels[a_offset + i]
-		    pixels[offset + i] = (x + a) & 0xff
-		offset += self.psize * xstep
-		a_offset += self.psize * xstep
+        if xstep == 1:
+            for index in range(self.psize, self.row_bytes):
+                x = pixels[offset]
+                a = pixels[a_offset]
+                pixels[offset] = (x + a) & 0xff
+                offset += 1
+                a_offset += 1
+        else:
+            for index in range(self.psize * xstep, self.row_bytes, self.psize * xstep):
+                for i in range(self.psize):
+                    x = pixels[offset + i]
+                    a = pixels[a_offset + i]
+                    pixels[offset + i] = (x + a) & 0xff
+                offset += self.psize * xstep
+                a_offset += self.psize * xstep
 
     def _reconstruct_up(self, offset, xstep, ystep):
         """Reverse up filter."""
-	pixels = self.pixels
+        pixels = self.pixels
         b_offset = offset - (self.row_bytes * ystep)
-	if xstep == 1:
-	    for index in range(self.row_bytes):
-		x = pixels[offset]
-		b = pixels[b_offset]
-		pixels[offset] = (x + b) & 0xff
-		offset += 1
-		b_offset += 1
-	else:
-	    for index in range(0, self.row_bytes, xstep * self.psize):
-		for i in range(self.psize):
-		    x = pixels[offset + i]
-		    b = pixels[b_offset + i]
-		    pixels[offset + i] = (x + b) & 0xff
-		offset += self.psize * xstep
-		b_offset += self.psize * xstep
+        if xstep == 1:
+            for index in range(self.row_bytes):
+                x = pixels[offset]
+                b = pixels[b_offset]
+                pixels[offset] = (x + b) & 0xff
+                offset += 1
+                b_offset += 1
+        else:
+            for index in range(0, self.row_bytes, xstep * self.psize):
+                for i in range(self.psize):
+                    x = pixels[offset + i]
+                    b = pixels[b_offset + i]
+                    pixels[offset + i] = (x + b) & 0xff
+                offset += self.psize * xstep
+                b_offset += self.psize * xstep
 
     def _reconstruct_average(self, offset, xstep, ystep):
         """Reverse average filter."""
-	pixels = self.pixels
+        pixels = self.pixels
         a_offset = offset - (self.psize * xstep)
         b_offset = offset - (self.row_bytes * ystep)
-	if xstep == 1:
-	    for index in range(self.row_bytes):
-		x = pixels[offset]
-		if index < self.psize:
-		    a = 0
-		else:
-		    a = pixels[a_offset]
-		if b_offset < 0:
-		    b = 0
-		else:
-		    b = pixels[b_offset]
-		pixels[offset] = (x + ((a + b) >> 1)) & 0xff
-		offset += 1
-		a_offset += 1
-		b_offset += 1
-	else:
-	    for index in range(0, self.row_bytes, self.psize * xstep):
-		for i in range(self.psize):
-		    x = pixels[offset+i]
-		    if index < self.psize:
-			a = 0
-		    else:
-			a = pixels[a_offset + i]
-		    if b_offset < 0:
-			b = 0
-		    else:
-			b = pixels[b_offset + i]
-		    pixels[offset + i] = (x + ((a + b) >> 1)) & 0xff
-		offset += self.psize * xstep
-		a_offset += self.psize * xstep
-		b_offset += self.psize * xstep
+        if xstep == 1:
+            for index in range(self.row_bytes):
+                x = pixels[offset]
+                if index < self.psize:
+                    a = 0
+                else:
+                    a = pixels[a_offset]
+                if b_offset < 0:
+                    b = 0
+                else:
+                    b = pixels[b_offset]
+                pixels[offset] = (x + ((a + b) >> 1)) & 0xff
+                offset += 1
+                a_offset += 1
+                b_offset += 1
+        else:
+            for index in range(0, self.row_bytes, self.psize * xstep):
+                for i in range(self.psize):
+                    x = pixels[offset+i]
+                    if index < self.psize:
+                        a = 0
+                    else:
+                        a = pixels[a_offset + i]
+                    if b_offset < 0:
+                        b = 0
+                    else:
+                        b = pixels[b_offset + i]
+                    pixels[offset + i] = (x + ((a + b) >> 1)) & 0xff
+                offset += self.psize * xstep
+                a_offset += self.psize * xstep
+                b_offset += self.psize * xstep
 
     def _reconstruct_paeth(self, offset, xstep, ystep):
         """Reverse Paeth filter."""
-	pixels = self.pixels
+        pixels = self.pixels
         a_offset = offset - (self.psize * xstep)
         b_offset = offset - (self.row_bytes * ystep)
         c_offset = b_offset - (self.psize * xstep)
-	# There's enough inside this loop that it's probably not worth optimising for xstep == 1
+        # There's enough inside this loop that it's probably not worth optimising for xstep == 1
         for index in range(0, self.row_bytes, self.psize * xstep):
-	    for i in range(self.psize):
-		x = pixels[offset+i]
-		if index < self.psize:
-		    a = c = 0
-		    b = pixels[b_offset+i]
-		else:
-		    a = pixels[a_offset+i]
-		    b = pixels[b_offset+i]
-		    c = pixels[c_offset+i]
-		p = a + b - c
-		pa = abs(p - a)
-		pb = abs(p - b)
-		pc = abs(p - c)
-		if pa <= pb and pa <= pc:
-		    pr = a
-		elif pb <= pc:
-		    pr = b
-		else:
-		    pr = c
-		pixels[offset+i] = (x + pr) & 0xff
+            for i in range(self.psize):
+                x = pixels[offset+i]
+                if index < self.psize:
+                    a = c = 0
+                    b = pixels[b_offset+i]
+                else:
+                    a = pixels[a_offset+i]
+                    b = pixels[b_offset+i]
+                    c = pixels[c_offset+i]
+                p = a + b - c
+                pa = abs(p - a)
+                pb = abs(p - b)
+                pc = abs(p - c)
+                if pa <= pb and pa <= pc:
+                    pr = a
+                elif pb <= pc:
+                    pr = b
+                else:
+                    pr = c
+                pixels[offset+i] = (x + pr) & 0xff
             offset += self.psize * xstep
             a_offset += self.psize * xstep
             b_offset += self.psize * xstep
@@ -568,38 +568,38 @@ class Reader:
     # filter and for paeth we map to the sub filter.
 
     def reconstruct_line(self, filter_type, first_line, offset, xstep, ystep):
-	# print >> sys.stderr, "Filter type %s, first_line=%s" % (filter_type, first_line)
-	filter_type += (first_line << 8)
-	if filter_type == 1 or filter_type == 0x101 or filter_type == 0x104:
-	    self._reconstruct_sub(offset, xstep, ystep)
-	elif filter_type == 2:
-	    self._reconstruct_up(offset, xstep, ystep)
-	elif filter_type == 3 or filter_type == 0x103:
-	    self._reconstruct_average(offset, xstep, ystep)
-	elif filter_type == 4:
-	    self._reconstruct_paeth(offset, xstep, ystep)
-	return
+        # print >> sys.stderr, "Filter type %s, first_line=%s" % (filter_type, first_line)
+        filter_type += (first_line << 8)
+        if filter_type == 1 or filter_type == 0x101 or filter_type == 0x104:
+            self._reconstruct_sub(offset, xstep, ystep)
+        elif filter_type == 2:
+            self._reconstruct_up(offset, xstep, ystep)
+        elif filter_type == 3 or filter_type == 0x103:
+            self._reconstruct_average(offset, xstep, ystep)
+        elif filter_type == 4:
+            self._reconstruct_paeth(offset, xstep, ystep)
+        return
 
     def deinterlace(self, scanlines):
-	# print >> sys.stderr, "Reading interlaced, w=%s, r=%s, planes=%s, bpp=%s" % (self.width, self.height, self.planes, self.bps)
-	a = array('B')
-	self.pixels = a
-	# Make the array big enough
-	temp = scanlines[0:self.width*self.height*self.psize]
-	a.extend(temp)
-	source_offset = 0
+        # print >> sys.stderr, "Reading interlaced, w=%s, r=%s, planes=%s, bpp=%s" % (self.width, self.height, self.planes, self.bps)
+        a = array('B')
+        self.pixels = a
+        # Make the array big enough
+        temp = scanlines[0:self.width*self.height*self.psize]
+        a.extend(temp)
+        source_offset = 0
         for xstart, ystart, xstep, ystep in _adam7:
-	    # print >> sys.stderr, "Adam7: start=%s,%s step=%s,%s" % (xstart, ystart, xstep, ystep)
-	    filter_first_line = 1
+            # print >> sys.stderr, "Adam7: start=%s,%s step=%s,%s" % (xstart, ystart, xstep, ystep)
+            filter_first_line = 1
             for y in range(ystart, self.height, ystep):
                 if xstart >= self.width:
                     continue
-		filter_type = scanlines[source_offset]
-		source_offset += 1
+                filter_type = scanlines[source_offset]
+                source_offset += 1
                 if xstep == 1:
                     offset = y * self.row_bytes
-		    a[offset:offset+self.row_bytes] = scanlines[source_offset:source_offset + self.row_bytes]
-		    source_offset += self.row_bytes
+                    a[offset:offset+self.row_bytes] = scanlines[source_offset:source_offset + self.row_bytes]
+                    source_offset += self.row_bytes
                 else:
                     # Note we want the ceiling of (width - xstart) / xtep
                     row_len = self.psize * ((self.width - xstart + xstep - 1) / xstep)
@@ -607,29 +607,29 @@ class Reader:
                     end_offset = (y+1) * self.row_bytes
                     skip = self.psize * xstep
                     for i in range(self.psize):
-			a[offset+i:end_offset:skip] = scanlines[source_offset + i: source_offset + row_len: self.psize]
-		    source_offset += row_len
-		if filter_type:
-		    self.reconstruct_line(filter_type, filter_first_line, offset, xstep, ystep)
-		filter_first_line = 0
-	return a
+                        a[offset+i:end_offset:skip] = scanlines[source_offset + i: source_offset + row_len: self.psize]
+                    source_offset += row_len
+                if filter_type:
+                    self.reconstruct_line(filter_type, filter_first_line, offset, xstep, ystep)
+                filter_first_line = 0
+        return a
 
     def read_flat(self, scanlines):
-	a = array('B')
-	self.pixels = a
-	offset = 0
-	source_offset = 0
-	filter_first_line = 1
-	for y in range(self.height):
-	    filter_type = scanlines[source_offset]
-	    source_offset += 1
-	    a.extend(scanlines[source_offset: source_offset + self.row_bytes])
-	    if filter_type:
-		self.reconstruct_line(filter_type, filter_first_line, offset, 1, 1)
-	    filter_first_line = 0
-	    offset += self.row_bytes
-	    source_offset += self.row_bytes
-	return a
+        a = array('B')
+        self.pixels = a
+        offset = 0
+        source_offset = 0
+        filter_first_line = 1
+        for y in range(self.height):
+            filter_type = scanlines[source_offset]
+            source_offset += 1
+            a.extend(scanlines[source_offset: source_offset + self.row_bytes])
+            if filter_type:
+                self.reconstruct_line(filter_type, filter_first_line, offset, 1, 1)
+            filter_first_line = 0
+            offset += self.row_bytes
+            source_offset += self.row_bytes
+        return a
 
     def read(self):
         """
@@ -640,9 +640,9 @@ class Reader:
         """
         signature = self.file.read(8)
         if (signature != struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10)):
-	    raise Exception("PNG file has invalid header")
+            raise Exception("PNG file has invalid header")
         compressed = []
-	image_metadata = {}
+        image_metadata = {}
         while True:
             tag, data = self.read_chunk()
             # print >> sys.stderr, tag, len(data)
@@ -650,64 +650,64 @@ class Reader:
                 (width, height, bits_per_sample, color_type,
                  compression_method, filter_method,
                  interlaced) = struct.unpack("!2I5B", data)
-		bps = bits_per_sample / 8
-		if bps == 0:
-		    raise Exception("Unsupported pixel depth")
-		if bps > 2 or bits_per_sample != (bps * 8):
-		    raise Exception("Invalid pixel depth")
-		if color_type == 0:
-		    greyscale = True
-		    has_alpha = False
-		    planes = 1
-		elif color_type == 2:
-		    greyscale = False
-		    has_alpha = False
-		    planes = 3
-		elif color_type == 4:
-		    greyscale = True
-		    has_alpha = True
-		    planes = 2
-		elif color_type == 6:
-		    greyscale = False
-		    has_alpha = True
-		    planes = 4
-		else:
-		    raise Exception("Unknown PNG colour type %s" % color_type)
-		if compression_method != 0:
-		    raise Exception("Unknown compression method")
-		if filter_method != 0:
-		    raise Exception("Unknown filter method")
-		self.bps = bps
-		self.planes = planes
-		self.psize = bps * planes
-		self.width = width
-		self.height = height
-		self.row_bytes = width * self.psize
-	    elif tag == 'IDAT': # http://www.w3.org/TR/PNG/#11IDAT
+                bps = bits_per_sample / 8
+                if bps == 0:
+                    raise Exception("Unsupported pixel depth")
+                if bps > 2 or bits_per_sample != (bps * 8):
+                    raise Exception("Invalid pixel depth")
+                if color_type == 0:
+                    greyscale = True
+                    has_alpha = False
+                    planes = 1
+                elif color_type == 2:
+                    greyscale = False
+                    has_alpha = False
+                    planes = 3
+                elif color_type == 4:
+                    greyscale = True
+                    has_alpha = True
+                    planes = 2
+                elif color_type == 6:
+                    greyscale = False
+                    has_alpha = True
+                    planes = 4
+                else:
+                    raise Exception("Unknown PNG colour type %s" % color_type)
+                if compression_method != 0:
+                    raise Exception("Unknown compression method")
+                if filter_method != 0:
+                    raise Exception("Unknown filter method")
+                self.bps = bps
+                self.planes = planes
+                self.psize = bps * planes
+                self.width = width
+                self.height = height
+                self.row_bytes = width * self.psize
+            elif tag == 'IDAT': # http://www.w3.org/TR/PNG/#11IDAT
                 compressed.append(data)
-	    elif tag == 'bKGD':
-		if greyscale:
-		    image_metadata["background"] = struct.unpack("!1H", data)
-		else:
-		    image_metadata["background"] = struct.unpack("!3H", data)
-	    elif tag == 'tRNS':
-		if greyscale:
-		    image_metadata["transparent"] = struct.unpack("!1H", data)
-		else:
-		    image_metadata["transparent"] = struct.unpack("!3H", data)
-	    elif tag == 'gAMA':
-		image_metadata["gamma"] = (struct.unpack("!L", data)[0]) / 100000.0
+            elif tag == 'bKGD':
+                if greyscale:
+                    image_metadata["background"] = struct.unpack("!1H", data)
+                else:
+                    image_metadata["background"] = struct.unpack("!3H", data)
+            elif tag == 'tRNS':
+                if greyscale:
+                    image_metadata["transparent"] = struct.unpack("!1H", data)
+                else:
+                    image_metadata["transparent"] = struct.unpack("!3H", data)
+            elif tag == 'gAMA':
+                image_metadata["gamma"] = (struct.unpack("!L", data)[0]) / 100000.0
             elif tag == 'IEND': # http://www.w3.org/TR/PNG/#11IEND
                 break
         scanlines = array('B', zlib.decompress(''.join(compressed)))
-	if interlaced:
-	    pixels = self.deinterlace(scanlines)
-	else:
-	    pixels = self.read_flat(scanlines)
-	image_metadata["greyscale"] = greyscale
-	image_metadata["has_alpha"] = has_alpha
-	image_metadata["bytes_per_sample"] = bps
-	image_metadata["interlaced"] = interlaced
+        if interlaced:
+            pixels = self.deinterlace(scanlines)
+        else:
+            pixels = self.read_flat(scanlines)
+        image_metadata["greyscale"] = greyscale
+        image_metadata["has_alpha"] = has_alpha
+        image_metadata["bytes_per_sample"] = bps
+        image_metadata["interlaced"] = interlaced
         return width, height, pixels, image_metadata
 
 
@@ -807,8 +807,8 @@ def test_suite(options):
         "RLS" : test_stripe_rl_10,
         "CK8" : test_checker_8,
         "CK15" : test_checker_15,
-	"ZERO" : test_zero,
-	"ONE" : test_one,
+        "ZERO" : test_zero,
+        "ONE" : test_one,
         }
 
     def test_pattern(width, height, depth, pattern):
@@ -867,7 +867,7 @@ def test_suite(options):
                     gamma=options.gamma,
                     has_alpha=options.test_alpha,
                     compression=options.compression,
-		    interlaced=options.interlace)
+                    interlaced=options.interlace)
     writer.write_array(sys.stdout, pixels)
 
 
