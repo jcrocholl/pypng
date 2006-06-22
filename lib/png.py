@@ -868,21 +868,7 @@ def test_suite(options):
                     has_alpha=options.test_alpha,
                     compression=options.compression,
 		    interlaced=options.interlace)
-
-    if options.there_and_back:
-	import tempfile, os
-	f = tempfile.mkstemp(".png")
-	fh = os.fdopen(f[0], "wb")
-	writer.write_array(fh, pixels)
-	fh.close()
-	width, height, pixels, metadata = Reader(filename=f[1]).read()
-	print >> sys.stderr, "w=%s, h=%s" % (width, height)
-	print >> sys.stderr, metadata
-	writer = Writer(width, height, **metadata)
-
     writer.write_array(sys.stdout, pixels)
-
-    return 0
 
 
 def read_pnm_header(infile, supported='P6'):
@@ -972,9 +958,6 @@ def _main():
     parser.add_option("-S", "--test-size",
                       action="store", type="int", metavar="size",
                       help="linear size of the test image")
-    parser.add_option("-X", "--there-and-back",
-		      default=False, action="store_true",
-		      help="after creating a test image, unpack it and then re-pack it")
     (options, args) = parser.parse_args()
 
     # Convert options
@@ -1017,4 +1000,3 @@ def _main():
 
 if __name__ == '__main__':
     _main()
-
