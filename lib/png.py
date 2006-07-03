@@ -428,7 +428,7 @@ class Reader:
 
         """
         if ((_guess is not None and len(kw) != 0) or
-            (_guess is None and len(kw) != 1):
+            (_guess is None and len(kw) != 1)):
             raise TypeError("Reader() takes exactly 1 argument")
 
         if _guess is not None:
