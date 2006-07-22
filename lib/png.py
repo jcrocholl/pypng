@@ -35,26 +35,18 @@
 
 
 """
-PNG encoder in pure Python
+Pure Python PNG Reader/Writer
 
 This is an implementation of a subset of the PNG specification at
-http://www.w3.org/TR/2003/REC-PNG-20031110 in pure Python.
+http://www.w3.org/TR/2003/REC-PNG-20031110 in pure Python. It reads
+and writes PNG files with 8/16/24/32/48/64 bits per pixel (greyscale,
+RGB, RGBA, with 8 or 16 bits per layer), with a number of options. For
+help, type "import png; help(png)" in your python interpreter.
 
-It supports encoding of PPM files or raw data with 8/16/24/32/48/64
-bits per pixel (greyscale, RGB or RGBA) into PNG, with a number of
-options.
-
-This file can be used in two ways:
-
-1. As a command-line utility to convert PNM files to PNG. The
-   interface is similar to that of the pnmtopng program from the
-   netpbm package. Try "python png.py --help" for usage information.
-
-2. As a module that can be imported and that offers methods to write
-   PNG files directly from your Python program. For help, try the
-   following in your python interpreter:
-   >>> import png
-   >>> help(png)
+This file can also be used as a command-line utility to convert PNM
+files to PNG. The interface is similar to that of the pnmtopng program
+from the netpbm package. Type "python png.py --help" at the shell
+prompt for usage and a list of options.
 """
 
 
@@ -66,6 +58,7 @@ __author__ = '$Author$'
 import sys, zlib, struct, math
 from array import array
 
+
 _adam7 = ((0, 0, 8, 8),
           (4, 0, 8, 8),
           (0, 4, 4, 8),
@@ -74,7 +67,8 @@ _adam7 = ((0, 0, 8, 8),
           (1, 0, 2, 2),
           (0, 1, 1, 2))
 
-def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
+
+def interleave_planes(ipixels, apixels, ipsize, apsize):
     """
     Interleave color planes, e.g. RGB + A = RGBA.
 
@@ -82,11 +76,10 @@ def interleave_planes(ipixels, apixels, width, height, ipsize, apsize):
     from each pixel in ipixels followed by the apsize bytes of data
     from each pixel in apixels, for an image of size width x height.
     """
-    pixelcount = width * height
+    itotal = len(ipixels)
+    atotal = len(apixels)
+    newtotal = itotal + atotal
     newpsize = ipsize + apsize
-    itotal = pixelcount * ipsize
-    atotal = pixelcount * apsize
-    newtotal = pixelcount * newpsize
     # Set up the output buffer
     out = array('B')
     # It's annoying that there is no cheap way to set the array size :-(
@@ -124,52 +117,53 @@ class Writer:
         background - create a bKGD chunk
         gamma - create a gAMA chunk
         greyscale - input data is greyscale, not RGB
-        has_alpha - input data has alpha channel
+        has_alpha - input data has alpha channel (RGBA)
         bytes_per_sample - 8-bit or 16-bit input data
         compression - zlib compression level (1-9)
-        chunk_limit - write multiple IDAT chunks to preserve memory
+        chunk_limit - write multiple IDAT chunks to save memory
 
         If specified, the transparent and background parameters must
-        be a tuple with three integer values for red, green, blue.
+        be a tuple with three integer values for red, green, blue, or
+        a simple integer (or singleton tuple) for a greyscale image.
 
         If specified, the gamma parameter must be a float value.
 
         """
         if width <= 0 or height <= 0:
-            raise ValueError("Width and height must be greater than zero")
+            raise ValueError("width and height must be greater than zero")
 
         if has_alpha and transparent is not None:
             raise ValueError(
-                "Transparent color not allowed with alpha channel")
+                "transparent color not allowed with alpha channel")
 
         if bytes_per_sample < 1 or bytes_per_sample > 2:
-            raise ValueError("Bytes per sample must be 1 or 2")
+            raise ValueError("bytes per sample must be 1 or 2")
 
         if transparent is not None:
             if greyscale:
                 if type(transparent) is not int:
                     raise ValueError(
-                        "Transparent color for greyscale must be integer")
+                        "transparent color for greyscale must be integer")
             else:
                 if not (len(transparent) == 3 and
                         type(transparent[0]) is int and
                         type(transparent[1]) is int and
                         type(transparent[2]) is int):
                     raise ValueError(
-                        "Transparent color must be a triple of integers")
+                        "transparent color must be a triple of integers")
 
         if background is not None:
             if greyscale:
                 if type(background) is not int:
                     raise ValueError(
-                        "Background color for greyscale must be integer")
+                        "background color for greyscale must be integer")
             else:
                 if not (len(background) == 3 and
                         type(background[0]) is int and
                         type(background[1]) is int and
                         type(background[2]) is int):
                     raise ValueError(
-                        "Background color must be a triple of integers")
+                        "background color must be a triple of integers")
 
         self.width = width
         self.height = height
@@ -316,7 +310,7 @@ class Writer:
         apixels.fromfile(pgmfile,
                          self.bytes_per_sample *
                          self.width * self.height)
-        pixels = interleave_planes(pixels, apixels, self.width, self.height,
+        pixels = interleave_planes(pixels, apixels,
                                    self.bytes_per_sample * self.color_depth,
                                    self.bytes_per_sample)
         if self.interlaced:
@@ -446,7 +440,7 @@ class Reader:
         elif "pixels" in kw:
             self.file = _readable(kw["pixels"])
         else:
-            raise TypeError("Expecting filename, file or pixels array")
+            raise TypeError("expecting filename, file or pixels array")
 
     def read_chunk(self):
         """
@@ -459,12 +453,14 @@ class Reader:
         verify = zlib.crc32(tag)
         verify = zlib.crc32(data, verify)
         if checksum != verify:
-            raise ValueError("Checksum error in %s chunk: %x != %x"
+            raise ValueError("checksum error in %s chunk: %x != %x"
                              % (tag, checksum, verify))
         return tag, data
 
     def _reconstruct_sub(self, offset, xstep, ystep):
-        """Reverse sub filter."""
+        """
+        Reverse sub filter.
+        """
         pixels = self.pixels
         a_offset = offset
         offset += self.psize * xstep
@@ -476,7 +472,8 @@ class Reader:
                 offset += 1
                 a_offset += 1
         else:
-            for index in range(self.psize * xstep, self.row_bytes, self.psize * xstep):
+            byte_step = self.psize * xstep
+            for index in range(byte_step, self.row_bytes, byte_step):
                 for i in range(self.psize):
                     x = pixels[offset + i]
                     a = pixels[a_offset + i]
@@ -485,7 +482,9 @@ class Reader:
                 a_offset += self.psize * xstep
 
     def _reconstruct_up(self, offset, xstep, ystep):
-        """Reverse up filter."""
+        """
+        Reverse up filter.
+        """
         pixels = self.pixels
         b_offset = offset - (self.row_bytes * ystep)
         if xstep == 1:
@@ -505,7 +504,9 @@ class Reader:
                 b_offset += self.psize * xstep
 
     def _reconstruct_average(self, offset, xstep, ystep):
-        """Reverse average filter."""
+        """
+        Reverse average filter.
+        """
         pixels = self.pixels
         a_offset = offset - (self.psize * xstep)
         b_offset = offset - (self.row_bytes * ystep)
@@ -542,12 +543,15 @@ class Reader:
                 b_offset += self.psize * xstep
 
     def _reconstruct_paeth(self, offset, xstep, ystep):
-        """Reverse Paeth filter."""
+        """
+        Reverse Paeth filter.
+        """
         pixels = self.pixels
         a_offset = offset - (self.psize * xstep)
         b_offset = offset - (self.row_bytes * ystep)
         c_offset = b_offset - (self.psize * xstep)
-        # There's enough inside this loop that it's probably not worth optimising for xstep == 1
+        # There's enough inside this loop that it's probably not worth
+        # optimising for xstep == 1
         for index in range(0, self.row_bytes, self.psize * xstep):
             for i in range(self.psize):
                 x = pixels[offset+i]
@@ -574,8 +578,9 @@ class Reader:
             b_offset += self.psize * xstep
             c_offset += self.psize * xstep
 
-    # N.B.  PNG files with 'up', 'average' or 'paeth' filters on the first line of a pass are legal.
-    # The code above for 'average' deals with this case explicitly.  For up we map to the null
+    # N.B. PNG files with 'up', 'average' or 'paeth' filters on the
+    # first line of a pass are legal. The code above for 'average'
+    # deals with this case explicitly. For up we map to the null
     # filter and for paeth we map to the sub filter.
 
     def reconstruct_line(self, filter_type, first_line, offset, xstep, ystep):
@@ -663,9 +668,9 @@ class Reader:
                  interlaced) = struct.unpack("!2I5B", data)
                 bps = bits_per_sample / 8
                 if bps == 0:
-                    raise Exception("Unsupported pixel depth")
+                    raise Exception("unsupported pixel depth")
                 if bps > 2 or bits_per_sample != (bps * 8):
-                    raise Exception("Invalid pixel depth")
+                    raise Exception("invalid pixel depth")
                 if color_type == 0:
                     greyscale = True
                     has_alpha = False
@@ -683,11 +688,11 @@ class Reader:
                     has_alpha = True
                     planes = 4
                 else:
-                    raise Exception("Unknown PNG colour type %s" % color_type)
+                    raise Exception("unknown PNG colour type %s" % color_type)
                 if compression_method != 0:
-                    raise Exception("Unknown compression method")
+                    raise Exception("unknown compression method")
                 if filter_method != 0:
-                    raise Exception("Unknown filter method")
+                    raise Exception("unknown filter method")
                 self.bps = bps
                 self.planes = planes
                 self.psize = bps * planes
@@ -846,10 +851,10 @@ def test_suite(options):
         b = test_pattern(size, size, depth, blue)
         if alpha:
             a = test_pattern(size, size, depth, alpha)
-        i = interleave_planes(r, g, size, size, depth, depth)
-        i = interleave_planes(i, b, size, size, 2 * depth, depth)
+        i = interleave_planes(r, g, depth, depth)
+        i = interleave_planes(i, b, 2 * depth, depth)
         if alpha:
-            i = interleave_planes(i, a, size, size, 3 * depth, depth)
+            i = interleave_planes(i, a, 3 * depth, depth)
         return i
 
     # The body of test_suite()
@@ -896,9 +901,9 @@ def read_pnm_header(infile, supported='P6'):
         if len(header) == 3 and header[0] == 'P4':
             break # PBM doesn't have maxval
     if header[0] not in supported:
-        raise NotImplementedError('File format %s not supported' % header[0])
+        raise NotImplementedError('file format %s not supported' % header[0])
     if header[0] != 'P4' and header[3] != '255':
-        raise NotImplementedError('Maxval %s not supported' % header[3])
+        raise NotImplementedError('maxval %s not supported' % header[3])
     return int(header[1]), int(header[2])
 
 
@@ -938,19 +943,19 @@ def _main():
                       help="mark the specified color as transparent")
     parser.add_option("-b", "--background",
                       action="store", type="string", metavar="color",
-                      help="store the specified background color")
+                      help="save the specified background color")
     parser.add_option("-a", "--alpha",
                       action="store", type="string", metavar="pgmfile",
                       help="alpha channel transparency (RGBA)")
     parser.add_option("-g", "--gamma",
                       action="store", type="float", metavar="value",
-                      help="store the specified gamma value")
+                      help="save the specified gamma value")
     parser.add_option("-c", "--compression",
                       action="store", type="int", metavar="level",
                       help="zlib compression level (0-9)")
     parser.add_option("-T", "--test",
                       default=False, action="store_true",
-                      help="run regression tests")
+                      help="create a test image")
     parser.add_option("-R", "--test-red",
                       action="store", type="string", metavar="pattern",
                       help="test pattern for the red image layer")
@@ -965,10 +970,10 @@ def _main():
                       help="test pattern for the alpha image layer")
     parser.add_option("-D", "--test-deep",
                       default=False, action="store_true",
-                      help="make test pattern 16 bit per layer deep")
+                      help="use test patterns with 16 bits per layer")
     parser.add_option("-S", "--test-size",
                       action="store", type="int", metavar="size",
-                      help="linear size of the test image")
+                      help="width and height of the test image")
     (options, args) = parser.parse_args()
 
     # Convert options
@@ -983,9 +988,11 @@ def _main():
 
     # Prepare input and output files
     if len(args) == 0:
+        ppmfilename = '-'
         ppmfile = sys.stdin
     elif len(args) == 1:
-        ppmfile = open(args[0], 'rb')
+        ppmfilename = args[0]
+        ppmfile = open(ppmfilename, 'rb')
     else:
         parser.error("more than one input file")
     outfile = sys.stdout
@@ -1000,8 +1007,12 @@ def _main():
                     compression=options.compression)
     if options.alpha is not None:
         pgmfile = open(options.alpha, 'rb')
-        if (width, height) != read_pnm_header(pgmfile, 'P5'):
-            raise ValueError("Alpha channel file has different size")
+        awidth, aheight = read_pnm_header(pgmfile, 'P5')
+        if (awidth, aheight) != (width, height):
+            raise ValueError("alpha channel image size mismatch" +
+                             " (%s has %sx%s but %s has %sx%s)"
+                             % (ppmfilename, width, height,
+                                options.alpha, awidth, aheight))
         writer.convert_ppm_and_pgm(ppmfile, pgmfile, outfile,
                            interlace=options.interlace)
     else:
