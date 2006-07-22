@@ -1,11 +1,15 @@
 #!/bin/sh
-lib/png.py --test --compression 0 > test-c0.png
-lib/png.py --test --compression 1 > test-c1.png
-lib/png.py --test --compression 2 > test-c2.png
-lib/png.py --test --compression 3 > test-c3.png
-lib/png.py --test --compression 4 > test-c4.png
-lib/png.py --test --compression 5 > test-c5.png
-lib/png.py --test --compression 6 > test-c6.png
-lib/png.py --test --compression 7 > test-c7.png
-lib/png.py --test --compression 8 > test-c8.png
-lib/png.py --test --compression 9 > test-c9.png
+
+TEST="../lib/png.py --test"
+OUT=output/test
+
+$TEST --compression 0 > $OUT-c0.png
+$TEST --compression 1 > $OUT-c1.png
+$TEST --compression 2 > $OUT-c2.png
+$TEST --compression 3 > $OUT-c3.png
+$TEST --compression 4 > $OUT-c4.png
+$TEST --compression 5 > $OUT-c5.png
+$TEST --compression 6 > $OUT-c6.png
+$TEST --compression 7 > $OUT-c7.png
+$TEST --compression 8 > $OUT-c8.png
+$TEST --compression 9 > $OUT-c9.png
