@@ -452,14 +452,26 @@ class Reader:
         Read a PNG chunk from the input file, return tag name and data.
         """
         # http://www.w3.org/TR/PNG/#5Chunk-layout
-        data_bytes, tag = struct.unpack('!I4s', self.file.read(8))
+        try:
+            data_bytes, tag = struct.unpack('!I4s', self.file.read(8))
+        except struct.error:
+            raise ValueError('Chunk too short for header')
         data = self.file.read(data_bytes)
-        checksum = struct.unpack('!i', self.file.read(4))[0]
+        if len(data) != data_bytes:
+            raise ValueError('Chunk %s too short for required %i data octets'
+                             % (tag, data_bytes))
+        checksum = self.file.read(4)
+        if len(checksum) != 4:
+            raise ValueError('Chunk %s too short for checksum', tag)
         verify = zlib.crc32(tag)
         verify = zlib.crc32(data, verify)
+        verify = struct.pack('!i', verify)
         if checksum != verify:
-            raise ValueError("checksum error in %s chunk: %x != %x"
-                             % (tag, checksum, verify))
+            # print repr(checksum)
+            (a,) = struct.unpack('!I', checksum)
+            (b,) = struct.unpack('!I', verify)
+            raise ValueError("Checksum error in %s chunk: 0x%X != 0x%X"
+                             % (tag, a, b))
         return tag, data
 
     def _reconstruct_sub(self, offset, xstep, ystep):
