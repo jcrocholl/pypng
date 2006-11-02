@@ -95,6 +95,8 @@ def interleave_planes(ipixels, apixels, ipsize, apsize):
         out[i+ipsize:newtotal:newpsize] = apixels[i:atotal:apsize]
     return out
 
+class Error(Exception):
+    pass
 
 class Writer:
     """
@@ -669,11 +671,15 @@ class Reader:
         """
         signature = self.file.read(8)
         if (signature != struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10)):
-            raise Exception("PNG file has invalid header")
+            raise Error("PNG file has invalid header")
         compressed = []
         image_metadata = {}
         while True:
-            tag, data = self.read_chunk()
+            try:
+                tag, data = self.read_chunk()
+            except ValueError, e:
+                raise Error('Chunk error: ' + e.args[0])
+
             # print >> sys.stderr, tag, len(data)
             if tag == 'IHDR': # http://www.w3.org/TR/PNG/#11IHDR
                 (width, height, bits_per_sample, color_type,
@@ -681,9 +687,9 @@ class Reader:
                  interlaced) = struct.unpack("!2I5B", data)
                 bps = bits_per_sample / 8
                 if bps == 0:
-                    raise Exception("unsupported pixel depth")
+                    raise Error("unsupported pixel depth")
                 if bps > 2 or bits_per_sample != (bps * 8):
-                    raise Exception("invalid pixel depth")
+                    raise Error("invalid pixel depth")
                 if color_type == 0:
                     greyscale = True
                     has_alpha = False
@@ -701,11 +707,11 @@ class Reader:
                     has_alpha = True
                     planes = 4
                 else:
-                    raise Exception("unknown PNG colour type %s" % color_type)
+                    raise Error("unknown PNG colour type %s" % color_type)
                 if compression_method != 0:
-                    raise Exception("unknown compression method")
+                    raise Error("unknown compression method")
                 if filter_method != 0:
-                    raise Exception("unknown filter method")
+                    raise Error("unknown filter method")
                 self.bps = bps
                 self.planes = planes
                 self.psize = bps * planes
