@@ -601,6 +601,9 @@ class Reader:
     # filter and for paeth we map to the sub filter.
 
     def reconstruct_line(self, filter_type, first_line, offset, xstep, ystep):
+        """
+        Reverse the filtering for a scanline.
+        """
         # print >> sys.stderr, "Filter type %s, first_line=%s" % (
         #                      filter_type, first_line)
         filter_type += (first_line << 8)
@@ -615,6 +618,9 @@ class Reader:
         return
 
     def deinterlace(self, scanlines):
+        """
+        Read pixel data and remove interlacing.
+        """
         # print >> sys.stderr, ("Reading interlaced, w=%s, r=%s, planes=%s," +
         #     " bpp=%s") % (self.width, self.height, self.planes, self.bps)
         a = array('B')
@@ -657,6 +663,9 @@ class Reader:
         return a
 
     def read_flat(self, scanlines):
+        """
+        Read pixel data without de-interlacing.
+        """
         a = array('B')
         self.pixels = a
         offset = 0
@@ -860,6 +869,9 @@ def test_suite(options):
         }
 
     def test_pattern(width, height, depth, pattern):
+        """
+        Create a single plane (monochrome) test pattern.
+        """
         a = array('B')
         fw = float(width)
         fh = float(height)
@@ -878,6 +890,9 @@ def test_suite(options):
 
     def test_rgba(size=256, depth=1,
                     red="GTB", green="GLR", blue="RTL", alpha=None):
+        """
+        Create a test image.
+        """
         r = test_pattern(size, size, depth, red)
         g = test_pattern(size, size, depth, green)
         b = test_pattern(size, size, depth, blue)
