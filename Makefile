@@ -68,4 +68,4 @@ README :
 clean :
 	rm -rf build dist test/test-*.png test/pypng*.png test/netpbm*.png
 
-.PHONY : README clean test/large.ppm
+.PHONY : README clean

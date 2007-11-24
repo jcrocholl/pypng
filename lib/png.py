@@ -1047,6 +1047,7 @@ def _main():
     # Encode PNM to PNG
     width, height = read_pnm_header(ppmfile)
     writer = Writer(width, height,
+                    interlaced=options.interlace,
                     transparent=options.transparent,
                     background=options.background,
                     has_alpha=options.alpha is not None,
@@ -1060,11 +1061,9 @@ def _main():
                              " (%s has %sx%s but %s has %sx%s)"
                              % (ppmfilename, width, height,
                                 options.alpha, awidth, aheight))
-        writer.convert_ppm_and_pgm(ppmfile, pgmfile, outfile,
-                           interlace=options.interlace)
+        writer.convert_ppm_and_pgm(ppmfile, pgmfile, outfile)
     else:
-        writer.convert_ppm(ppmfile, outfile,
-                           interlace=options.interlace)
+        writer.convert_ppm(ppmfile, outfile)
 
 
 if __name__ == '__main__':
