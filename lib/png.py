@@ -439,7 +439,7 @@ class Reader:
                 kw["file"] = _guess
 
         if "filename" in kw:
-            self.file = file(kw["filename"])
+            self.file = file(kw["filename"], "rb")
         elif "file" in kw:
             self.file = kw["file"]
         elif "pixels" in kw:
