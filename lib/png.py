@@ -95,8 +95,10 @@ def interleave_planes(ipixels, apixels, ipsize, apsize):
         out[i+ipsize:newtotal:newpsize] = apixels[i:atotal:apsize]
     return out
 
+
 class Error(Exception):
     pass
+
 
 class Writer:
     """
@@ -393,6 +395,7 @@ class Writer:
                             pixels[offset+i:end_offset:skip]
                     yield row
 
+
 class _readable:
     """
     A simple file-like interface for strings and arrays.
@@ -408,6 +411,7 @@ class _readable:
             r = r.tostring()
         offset += n
         return r
+
 
 class Reader:
     """
@@ -468,8 +472,8 @@ class Reader:
         verify = struct.pack('!i', verify)
         if checksum != verify:
             # print repr(checksum)
-            (a,) = struct.unpack('!I', checksum)
-            (b,) = struct.unpack('!I', verify)
+            (a, ) = struct.unpack('!I', checksum)
+            (b, ) = struct.unpack('!I', verify)
             raise ValueError("Checksum error in %s chunk: 0x%X != 0x%X"
                              % (tag, a, b))
         return tag, data
