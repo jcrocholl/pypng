@@ -209,7 +209,7 @@ class Writer:
         outfile.write(data)
         checksum = zlib.crc32(tag)
         checksum = zlib.crc32(data, checksum)
-        outfile.write(struct.pack("!I", checksum))
+        outfile.write(struct.pack("!i", checksum))
 
     def write(self, outfile, scanlines):
         """
